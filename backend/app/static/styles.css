@@ -683,6 +683,58 @@ summary {
   overflow: auto;
 }
 
+.collection-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.collection-items {
+  display: grid;
+  gap: 8px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.collection-item {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.72);
+  border-radius: 12px;
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+}
+
+.collection-meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.collection-text {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.collection-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tag-pill {
+  border-radius: 999px;
+  background: rgba(59, 90, 145, 0.12);
+  color: #2c4f7a;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.collection-note {
+  color: #5a4639;
+  font-size: 12px;
+}
+
 .ai-result-header {
   font-size: 12px;
   letter-spacing: 0.1em;

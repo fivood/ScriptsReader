@@ -113,3 +113,17 @@ class ReadingProgressPayload(BaseModel):
     last_line: int
     updated_at: str
     status: Literal["unread", "in_progress", "finished"] = "unread"
+
+
+class CollectionCreateRequest(BaseModel):
+    name: str
+
+
+class CollectionItemCreateRequest(BaseModel):
+    collection_id: int
+    episode_id: int
+    line_index: int
+    speaker: str | None = None
+    text: str
+    tags: list[str] = Field(default_factory=list)
+    note: str = ""

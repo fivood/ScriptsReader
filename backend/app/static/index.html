@@ -145,6 +145,27 @@
               选中对白后点击"析"按钮，或使用上方快捷操作。
             </div>
           </section>
+
+          <section class="panel">
+            <div class="section-heading">
+              <h2>收藏库</h2>
+              <span id="collection-count" class="muted">0 条</span>
+            </div>
+            <div class="collection-row">
+              <select id="collection-select" class="model-select">
+                <option value="">选择收藏夹</option>
+              </select>
+              <button id="collection-delete" class="ghost-btn" title="删除收藏夹">删</button>
+            </div>
+            <div class="collection-row">
+              <input id="collection-name" type="text" placeholder="新收藏夹名称">
+              <button id="collection-create" class="ghost-btn">新建</button>
+            </div>
+            <div class="collection-row">
+              <input id="collection-filter" type="search" placeholder="按标签/关键词筛选收藏">
+            </div>
+            <div id="collection-items" class="collection-items empty-state">暂无收藏内容</div>
+          </section>
         </aside>
       </section>
     </main>

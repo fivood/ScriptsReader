@@ -13,6 +13,9 @@ const state = {
   translateAllActive: false,
   readingProgress: {},
   progressSaveTimer: null,
+  collections: [],
+  selectedCollectionId: null,
+  collectionFilter: '',
 };
 
 const elements = {
@@ -50,6 +53,13 @@ const elements = {
   aiPanel: document.getElementById('ai-panel'),
   aiProfileBtn: document.getElementById('ai-profile-btn'),
   translateAllBtn: document.getElementById('translate-all-btn'),
+  collectionCount: document.getElementById('collection-count'),
+  collectionSelect: document.getElementById('collection-select'),
+  collectionDelete: document.getElementById('collection-delete'),
+  collectionName: document.getElementById('collection-name'),
+  collectionCreate: document.getElementById('collection-create'),
+  collectionFilter: document.getElementById('collection-filter'),
+  collectionItems: document.getElementById('collection-items'),
 };
 
 async function request(url, options = {}) {
@@ -102,6 +112,7 @@ function renderLibrary() {
           <div class="tree-episodes">
             ${season.episodes.map(episode => `
               <button class="episode-link ${state.selectedEpisodeId === episode.id ? 'active' : ''}" data-episode-id="${episode.id}">
+                <span class="reading-dot ${episode.reading_status || 'unread'}" title="${episode.reading_status || 'unread'}"></span>
                 <span>${episode.episode_code || 'EP'}</span>
                 <strong>${episode.title}</strong>
                 <small>${episode.line_count} 行</small>
@@ -202,6 +213,7 @@ function renderDialogue() {
             <button class="tiny-btn ai-btn" data-explain-line="${line.line_index}">注释</button>
             <button class="tiny-btn ai-btn" data-rewrite-line="${line.line_index}">改</button>
             <button class="tiny-btn ai-btn" data-sentiment-line="${line.line_index}">情</button>
+            <button class="tiny-btn" data-collect-line="${line.line_index}">藏</button>
             <button class="tiny-btn" data-highlight-line="${line.line_index}">标</button>
             <button class="tiny-btn" data-note-line="${line.line_index}">注</button>
           </div>
@@ -219,6 +231,9 @@ function renderDialogue() {
   });
   document.querySelectorAll('[data-note-line]').forEach(button => {
     button.addEventListener('click', () => editNote(Number(button.dataset.noteLine)));
+  });
+  document.querySelectorAll('[data-collect-line]').forEach(button => {
+    button.addEventListener('click', () => collectLine(Number(button.dataset.collectLine)));
   });
   document.querySelectorAll('[data-analyze-line]').forEach(button => {
     button.addEventListener('click', () => aiLineTask('analyze', Number(button.dataset.analyzeLine)));
@@ -292,6 +307,128 @@ function topVisibleLineIndex() {
   const firstVisible = cards.find(card => card.getBoundingClientRect().bottom > containerTop + 8);
   if (!firstVisible) return null;
   return Number(firstVisible.dataset.lineIndex);
+}
+
+function selectedCollection() {
+  return state.collections.find(item => item.id === state.selectedCollectionId) || null;
+}
+
+function renderCollections() {
+  const all = state.collections;
+  const selected = selectedCollection();
+  const itemCount = selected ? selected.items.length : 0;
+  elements.collectionCount.textContent = `${itemCount} 条`;
+
+  elements.collectionSelect.innerHTML = all.length
+    ? all.map(item => `<option value="${item.id}" ${item.id === state.selectedCollectionId ? 'selected' : ''}>${escapeHtml(item.name)} (${item.item_count})</option>`).join('')
+    : '<option value="">选择收藏夹</option>';
+
+  if (!selected) {
+    elements.collectionItems.className = 'collection-items empty-state';
+    elements.collectionItems.textContent = '暂无收藏内容';
+    elements.collectionDelete.disabled = true;
+    return;
+  }
+
+  elements.collectionDelete.disabled = false;
+  const keyword = state.collectionFilter.trim().toLowerCase();
+  const filtered = selected.items.filter(item => {
+    if (!keyword) return true;
+    const haystack = `${item.show_name} ${item.episode_code || ''} ${item.episode_title} ${item.speaker || ''} ${item.text} ${(item.tags || []).join(' ')} ${item.note || ''}`.toLowerCase();
+    return haystack.includes(keyword);
+  });
+
+  if (!filtered.length) {
+    elements.collectionItems.className = 'collection-items empty-state';
+    elements.collectionItems.textContent = '当前筛选下没有收藏';
+    return;
+  }
+
+  elements.collectionItems.className = 'collection-items';
+  elements.collectionItems.innerHTML = filtered.map(item => `
+    <article class="collection-item">
+      <div class="collection-meta">${escapeHtml(item.show_name)} · S${String(item.season_number).padStart(2, '0')} · ${escapeHtml(item.episode_code || 'EP')} · L${item.line_index}</div>
+      <div class="collection-text"><strong>${escapeHtml(item.speaker || 'NARRATION')}:</strong> ${escapeHtml(item.text)}</div>
+      ${item.tags && item.tags.length ? `<div class="collection-tags">${item.tags.map(tag => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
+      ${item.note ? `<div class="collection-note">${escapeHtml(item.note)}</div>` : ''}
+      <div class="line-actions">
+        <button class="tiny-btn" data-open-collection-episode="${item.episode_id}" data-open-collection-line="${item.line_index}">跳转</button>
+        <button class="tiny-btn" data-delete-collection-item="${item.id}">移除</button>
+      </div>
+    </article>
+  `).join('');
+
+  document.querySelectorAll('[data-delete-collection-item]').forEach(button => {
+    button.addEventListener('click', async () => {
+      await request(`/api/collections/items/${button.dataset.deleteCollectionItem}`, { method: 'DELETE' });
+      await loadCollections();
+    });
+  });
+  document.querySelectorAll('[data-open-collection-episode]').forEach(button => {
+    button.addEventListener('click', async () => {
+      state.focusedLineIndex = Number(button.dataset.openCollectionLine);
+      await selectEpisode(Number(button.dataset.openCollectionEpisode));
+    });
+  });
+}
+
+async function loadCollections() {
+  state.collections = await request('/api/collections');
+  if (state.collections.length && !state.collections.some(item => item.id === state.selectedCollectionId)) {
+    state.selectedCollectionId = state.collections[0].id;
+  }
+  if (!state.collections.length) {
+    state.selectedCollectionId = null;
+  }
+  renderCollections();
+}
+
+async function createCollection() {
+  const name = (elements.collectionName.value || '').trim();
+  if (!name) return;
+  await request('/api/collections', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  });
+  elements.collectionName.value = '';
+  await loadCollections();
+}
+
+async function deleteSelectedCollection() {
+  if (!state.selectedCollectionId) return;
+  if (!confirm('确认删除当前收藏夹及其条目？')) return;
+  await request(`/api/collections/${state.selectedCollectionId}`, { method: 'DELETE' });
+  await loadCollections();
+}
+
+async function collectLine(lineIndex) {
+  if (!state.currentEpisode) return;
+  if (!state.selectedCollectionId) {
+    elements.collectionItems.className = 'collection-items';
+    elements.collectionItems.innerHTML = '<div class="status-item warn">请先新建或选择收藏夹</div>';
+    return;
+  }
+  const line = state.currentEpisode.lines.find(item => item.line_index === lineIndex && !item.is_direction);
+  if (!line) return;
+  const tagsRaw = prompt('收藏标签（逗号分隔，可留空）', '');
+  if (tagsRaw === null) return;
+  const noteRaw = prompt('收藏备注（可留空）', '') || '';
+  const tags = tagsRaw.split(',').map(item => item.trim()).filter(Boolean);
+  await request('/api/collections/items', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      collection_id: state.selectedCollectionId,
+      episode_id: state.currentEpisode.id,
+      line_index: lineIndex,
+      speaker: line.speaker || null,
+      text: line.text,
+      tags,
+      note: noteRaw,
+    }),
+  });
+  await loadCollections();
 }
 
 async function selectEpisode(episodeId) {
@@ -845,6 +982,27 @@ function wireEvents() {
     all_seasons: true,
   }));
   elements.translateAllBtn.addEventListener('click', translateAll);
+  elements.collectionCreate.addEventListener('click', createCollection);
+  elements.collectionDelete.addEventListener('click', deleteSelectedCollection);
+  elements.collectionName.addEventListener('keydown', event => {
+    if (event.key === 'Enter') createCollection();
+  });
+  elements.collectionSelect.addEventListener('change', () => {
+    state.selectedCollectionId = Number(elements.collectionSelect.value) || null;
+    renderCollections();
+  });
+  elements.collectionFilter.addEventListener('input', event => {
+    state.collectionFilter = event.target.value || '';
+    renderCollections();
+  });
+  elements.dialogueList.addEventListener('scroll', () => {
+    const idx = topVisibleLineIndex();
+    if (idx) saveReadingProgress(idx);
+  });
+  window.addEventListener('beforeunload', () => {
+    const idx = topVisibleLineIndex() || state.focusedLineIndex;
+    if (idx) saveReadingProgress(idx, true);
+  });
   elements.ollamaRefreshModels.addEventListener('click', loadOllamaStatus);
   elements.ollamaModel.addEventListener('change', () => {
     state.ollamaModel = elements.ollamaModel.value;
@@ -858,6 +1016,7 @@ async function bootstrap() {
   wireEvents();
   await loadCatalogStatus();
   await loadLibrary();
+  await loadCollections();
   await loadDownloadJobs();
   await loadOllamaStatus();
   window.setInterval(loadDownloadJobs, 2500);

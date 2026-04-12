@@ -69,12 +69,34 @@ CREATE TABLE IF NOT EXISTS reading_progress (
     UNIQUE(episode_id)
 );
 
+CREATE TABLE IF NOT EXISTS collections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS collection_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    collection_id INTEGER NOT NULL REFERENCES collections(id) ON DELETE CASCADE,
+    episode_id INTEGER NOT NULL REFERENCES episodes(id) ON DELETE CASCADE,
+    line_index INTEGER NOT NULL,
+    speaker TEXT,
+    text TEXT NOT NULL,
+    tags TEXT NOT NULL DEFAULT '',
+    note TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(collection_id, episode_id, line_index)
+);
+
 CREATE INDEX IF NOT EXISTS idx_episodes_season_id ON episodes(season_id);
 CREATE INDEX IF NOT EXISTS idx_lines_episode_id ON dialogue_lines(episode_id);
 CREATE INDEX IF NOT EXISTS idx_lines_speaker ON dialogue_lines(speaker);
 CREATE INDEX IF NOT EXISTS idx_highlights_episode_id ON highlights(episode_id);
 CREATE INDEX IF NOT EXISTS idx_notes_episode_id ON notes(episode_id);
 CREATE INDEX IF NOT EXISTS idx_reading_progress_episode_id ON reading_progress(episode_id);
+CREATE INDEX IF NOT EXISTS idx_collections_name ON collections(name);
+CREATE INDEX IF NOT EXISTS idx_collection_items_collection_id ON collection_items(collection_id);
 """
 
 

@@ -9,7 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import STATIC_DIR
 from .database import init_db
-from .routers import annotations, catalog, downloads, imports, ollama, scripts, search, translate
+from .routers import annotations, catalog, collections, downloads, imports, ollama, scripts, search, translate
 from .services.library import rebuild_library
 
 app = FastAPI(title="ScriptsReader", version="0.1.0")
@@ -29,6 +29,7 @@ app.include_router(translate.router)
 app.include_router(annotations.router)
 app.include_router(catalog.router)
 app.include_router(ollama.router)
+app.include_router(collections.router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
