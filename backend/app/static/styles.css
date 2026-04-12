@@ -762,7 +762,7 @@ summary {
 
 .collection-item {
   border: 1px solid var(--line);
-  background: rgba(255, 255, 255, 0.72);
+  background: #1f1f1f;
   border-radius: 12px;
   padding: 10px;
   display: grid;
@@ -787,14 +787,14 @@ summary {
 
 .tag-pill {
   border-radius: 999px;
-  background: rgba(59, 90, 145, 0.12);
-  color: #2c4f7a;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted);
   padding: 2px 8px;
   font-size: 11px;
 }
 
 .collection-note {
-  color: #5a4639;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -809,8 +809,8 @@ summary {
 .ai-result-quote {
   padding: 10px 12px;
   border-radius: 12px;
-  background: rgba(181, 82, 51, 0.06);
-  border: 1px solid rgba(181, 82, 51, 0.14);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--line);
   font-size: 13px;
   color: var(--muted);
   line-height: 1.5;
@@ -819,7 +819,7 @@ summary {
 .ai-result-body {
   padding: 12px 14px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.72);
+  background: #1f1f1f;
   border: 1px solid var(--line);
   font-size: 13.5px;
   line-height: 1.7;
