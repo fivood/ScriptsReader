@@ -316,6 +316,11 @@ button:hover {
   background: rgba(181, 82, 51, 0.08);
 }
 
+.status-item.canceled {
+  border-color: rgba(124, 113, 94, 0.35);
+  background: rgba(124, 113, 94, 0.10);
+}
+
 .status-item.running {
   border-color: rgba(59, 90, 145, 0.24);
   background: rgba(59, 90, 145, 0.08);
@@ -349,6 +354,12 @@ button:hover {
   color: #8d3d24;
   font-weight: 600;
   overflow-wrap: anywhere;
+}
+
+.job-cancel-btn {
+  justify-self: start;
+  background: rgba(181, 82, 51, 0.1);
+  color: #8d3d24;
 }
 
 .library-tree {

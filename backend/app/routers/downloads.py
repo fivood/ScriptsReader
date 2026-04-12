@@ -5,6 +5,7 @@ from pydantic import ValidationError
 
 from ..schemas import DownloadStartRequest
 from ..services.downloads import (
+    cancel_download,
     list_jobs,
     load_download_presets,
     save_download_presets,
@@ -29,6 +30,14 @@ def create_download_job(payload: DownloadStartRequest) -> dict:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/{job_id}/cancel")
+def cancel_download_job(job_id: str) -> dict:
+    try:
+        return cancel_download(job_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=f"job not found: {job_id}") from exc
 
 
 @router.get("/presets")

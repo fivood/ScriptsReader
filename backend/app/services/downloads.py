@@ -222,6 +222,34 @@ def list_jobs() -> list[dict]:
     return sorted(jobs, key=lambda item: item["started_at"], reverse=True)
 
 
+def cancel_download(job_id: str) -> dict:
+    with _LOCK:
+        state = _JOBS.get(job_id)
+        if not state:
+            raise KeyError(job_id)
+
+    _refresh_job(state)
+    if state.status != "running" or state.process is None:
+        return serialize_job(state)
+
+    proc = state.process
+    try:
+        proc.terminate()
+        proc.wait(timeout=5)
+    except Exception:
+        try:
+            proc.kill()
+            proc.wait(timeout=5)
+        except Exception:
+            pass
+
+    state.exit_code = state.exit_code if state.exit_code is not None else -15
+    state.status = "canceled"
+    state.finished_at = datetime.now().isoformat(timespec="seconds")
+    state.process = None
+    return serialize_job(state)
+
+
 def load_download_presets() -> dict:
     if not DOWNLOAD_PRESETS_PATH.exists():
         return {}

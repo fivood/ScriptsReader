@@ -79,7 +79,7 @@ class DownloadStartRequest(BaseModel):
 class DownloadJob(BaseModel):
     job_id: str
     target: str
-    status: Literal["running", "finished", "failed"]
+    status: Literal["running", "finished", "failed", "canceled"]
     started_at: str
     finished_at: str | None = None
     log_path: str

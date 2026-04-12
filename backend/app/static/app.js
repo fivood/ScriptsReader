@@ -379,9 +379,26 @@ async function loadDownloadJobs() {
       ${job.current_item && job.current_item !== job.progress_text ? `<div class="job-current">当前：${escapeHtml(job.current_item)}</div>` : ''}
       ${job.status === 'failed' && job.error_line ? `<div class="job-error">错误：${escapeHtml(job.error_line)}</div>` : ''}
       ${job.last_log_line ? `<small class="job-log">日志：${escapeHtml(job.last_log_line)}</small>` : ''}
+      ${job.status === 'running' ? `<button class="tiny-btn job-cancel-btn" data-cancel-job="${job.job_id}">停止任务</button>` : ''}
       <small>${job.started_at}${job.finished_at ? ` -> ${job.finished_at}` : ''}</small>
     </div>
   `).join('');
+
+  document.querySelectorAll('[data-cancel-job]').forEach(button => {
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      try {
+        await request(`/api/downloads/${button.dataset.cancelJob}/cancel`, { method: 'POST' });
+        await loadDownloadJobs();
+      } catch (error) {
+        button.disabled = false;
+        elements.downloadStatus.insertAdjacentHTML(
+          'afterbegin',
+          `<div class="status-item warn">停止失败：${escapeHtml(String(error.message || error))}</div>`,
+        );
+      }
+    });
+  });
 }
 
 // ── Catalog search & download ───────────────────────────────────────────
