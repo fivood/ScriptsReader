@@ -24,3 +24,6 @@ DEEPL_API_KEY = os.getenv("DEEPL_API_KEY", "").strip()
 DEEPL_API_URL = os.getenv("DEEPL_API_URL", "https://api-free.deepl.com/v2/translate").strip()
 
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").strip()
+
+# Auth token for public access – leave empty to disable authentication
+AUTH_TOKEN = os.getenv("SR_AUTH_TOKEN", "").strip()

@@ -1,18 +1,60 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
-from .config import STATIC_DIR
+from .config import AUTH_TOKEN, STATIC_DIR
 from .database import init_db
 from .routers import annotations, catalog, collections, downloads, imports, ollama, scripts, search, translate
 from .services.library import rebuild_library
 
+
+# ── Token auth middleware ───────────────────────────────────
+
+class TokenAuthMiddleware(BaseHTTPMiddleware):
+    """If SR_AUTH_TOKEN is set, require ?token= or Authorization header."""
+
+    OPEN_PATHS = {"/api/health", "/login"}
+
+    async def dispatch(self, request: Request, call_next):
+        if not AUTH_TOKEN:
+            return await call_next(request)
+
+        path = request.url.path
+
+        # Allow static assets and open endpoints
+        if path.startswith("/static/") or path in self.OPEN_PATHS:
+            return await call_next(request)
+
+        # Check query param first, then Authorization header
+        token = request.query_params.get("token", "")
+        if not token:
+            auth = request.headers.get("authorization", "")
+            if auth.lower().startswith("bearer "):
+                token = auth[7:]
+
+        # Check cookie
+        if not token:
+            token = request.cookies.get("sr_token", "")
+
+        if token == AUTH_TOKEN:
+            return await call_next(request)
+
+        # For HTML page request, redirect to login
+        if path == "/" or "text/html" in request.headers.get("accept", ""):
+            return RedirectResponse("/login")
+
+        return JSONResponse({"detail": "Unauthorized"}, status_code=401)
+
+
 app = FastAPI(title="ScriptsReader", version="0.1.0")
+app.add_middleware(TokenAuthMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -42,6 +84,22 @@ def on_startup() -> None:
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/login")
+def login_page() -> FileResponse:
+    return FileResponse(STATIC_DIR / "login.html", media_type="text/html")
+
+
+@app.post("/login")
+async def login_verify(request: Request):
+    form = await request.form()
+    token = str(form.get("token", "")).strip()
+    if token == AUTH_TOKEN:
+        resp = RedirectResponse("/", status_code=303)
+        resp.set_cookie("sr_token", token, httponly=True, samesite="lax", max_age=86400 * 30)
+        return resp
+    return FileResponse(STATIC_DIR / "login.html", media_type="text/html")
 
 
 @app.get("/")

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ScriptsReader · 登录</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; border-radius: 0 !important; }
+    body {
+      font-family: Inter, 'Segoe UI', 'Microsoft YaHei', sans-serif;
+      background: #131313; color: #e2e2e2;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh;
+    }
+    .card {
+      background: #1b1b1b; border: 1px solid rgba(71,71,71,0.16);
+      padding: 40px; width: 340px;
+    }
+    .card h1 { font-size: 18px; margin-bottom: 6px; letter-spacing: 0.02em; }
+    .card p { color: #9b9b9b; font-size: 13px; margin-bottom: 24px; }
+    input {
+      width: 100%; padding: 10px 12px; border: 1px solid rgba(71,71,71,0.28);
+      background: #0e0e0e; color: #e2e2e2; font: inherit; font-size: 14px;
+      margin-bottom: 16px;
+    }
+    button {
+      width: 100%; padding: 10px; background: #e2e2e2; color: #131313;
+      border: 0; font: inherit; font-weight: 600; cursor: pointer;
+    }
+    button:hover { background: #ffffff; }
+  </style>
+</head>
+<body>
+  <form class="card" method="POST" action="/login">
+    <h1>ScriptsReader</h1>
+    <p>输入访问口令继续</p>
+    <input type="password" name="token" placeholder="Access Token" autofocus required>
+    <button type="submit">进入</button>
+  </form>
+</body>
+</html>
