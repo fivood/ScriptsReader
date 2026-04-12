@@ -785,24 +785,46 @@ async function loadOllamaStatus() {
   try {
     const h = await request('/api/ollama/health');
     state.ollamaOnline = h.online;
-    elements.ollamaStatus.textContent = h.online ? '✓ 在线' : '✗ 离线';
+    if (h.online && h.models > 0) {
+      elements.ollamaStatus.textContent = `✓ 在线 · ${h.models} 模型`;
+    } else if (h.online) {
+      elements.ollamaStatus.textContent = '⚠ 在线但无模型';
+    } else {
+      elements.ollamaStatus.textContent = '✗ 离线';
+    }
     elements.ollamaStatus.className = h.online ? 'muted ai-online' : 'muted ai-offline';
-    if (h.online) await loadOllamaModels();
+    elements.ollamaStatus.title = h.error || `endpoint: ${h.base_url || 'unknown'}`;
+    if (h.online) {
+      await loadOllamaModels();
+    } else {
+      elements.ollamaModel.innerHTML = '<option value="">Ollama 未连接</option>';
+      state.ollamaModel = '';
+    }
   } catch {
     state.ollamaOnline = false;
     elements.ollamaStatus.textContent = '✗ 不可用';
     elements.ollamaStatus.className = 'muted ai-offline';
+    elements.ollamaStatus.title = '无法连接到 /api/ollama/health';
+    elements.ollamaModel.innerHTML = '<option value="">Ollama 未连接</option>';
+    state.ollamaModel = '';
   }
 }
 
 async function loadOllamaModels() {
-  const models = await request('/api/ollama/models');
-  elements.ollamaModel.innerHTML = models.length
-    ? models.map(m => `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join('')
-    : '<option value="">无可用模型</option>';
-  if (models.length) {
-    state.ollamaModel = models[0].name;
-    elements.ollamaModel.value = models[0].name;
+  try {
+    const models = await request('/api/ollama/models');
+    elements.ollamaModel.innerHTML = models.length
+      ? models.map(m => `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join('')
+      : '<option value="">无可用模型（请先 ollama pull）</option>';
+    if (models.length) {
+      state.ollamaModel = models[0].name;
+      elements.ollamaModel.value = models[0].name;
+    } else {
+      state.ollamaModel = '';
+    }
+  } catch {
+    elements.ollamaModel.innerHTML = '<option value="">模型加载失败</option>';
+    state.ollamaModel = '';
   }
 }
 
@@ -823,6 +845,7 @@ function buildLineContext(lineIndex) {
 }
 
 async function aiLineTask(task, lineIndex) {
+  if (!state.ollamaOnline) { showAiResult('Ollama 未连接，请先启动 ollama serve。'); return; }
   const model = getSelectedModel();
   if (!model) { showAiResult('请先选择模型'); return; }
   const { line, context } = buildLineContext(lineIndex);
@@ -852,6 +875,7 @@ async function aiLineTask(task, lineIndex) {
 }
 
 async function aiEpisodeTask(task) {
+  if (!state.ollamaOnline) { showAiResult('Ollama 未连接，请先启动 ollama serve。'); return; }
   const model = getSelectedModel();
   if (!model) { showAiResult('请先选择模型'); return; }
   if (!state.currentEpisode) { showAiResult('请先选择一集'); return; }

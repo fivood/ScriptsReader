@@ -3,7 +3,7 @@ from __future__ import annotations
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from ..services.ollama import chat, check_health, list_models
+from ..services.ollama import OllamaServiceError, chat, check_health, list_models
 
 router = APIRouter(prefix="/api/ollama", tags=["ollama"])
 
@@ -28,7 +28,10 @@ async def get_health() -> dict:
 
 @router.get("/models")
 async def get_models() -> list[dict]:
-    return await list_models()
+    try:
+        return await list_models()
+    except Exception:
+        return []
 
 
 @router.post("/chat", response_model=OllamaChatResponse)
@@ -43,5 +46,7 @@ async def post_chat(payload: OllamaChatRequest) -> OllamaChatResponse:
             target_lang=payload.target_lang,
         )
         return OllamaChatResponse(ok=True, reply=reply)
+    except OllamaServiceError as exc:
+        return OllamaChatResponse(ok=False, error=str(exc))
     except Exception as exc:
         return OllamaChatResponse(ok=False, error=f"{type(exc).__name__}: {exc}")

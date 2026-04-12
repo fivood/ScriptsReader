@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import httpx
 
-from ..config import OLLAMA_BASE_URL
+from ..config import OLLAMA_BASE_URL, OLLAMA_TIMEOUT_SECONDS
+
+
+class OllamaServiceError(RuntimeError):
+    """Raised when Ollama is unreachable or returns an unexpected payload."""
 
 # ── Prompt templates per task ──────────────────────────────────────────────
 
@@ -51,39 +55,56 @@ _SYSTEM_PROMPTS: dict[str, str] = {
 
 def _get_system_prompt(task: str, **kwargs: str) -> str:
     template = _SYSTEM_PROMPTS.get(task, _SYSTEM_PROMPTS["analyze"])
-    return template.format_map({**kwargs, **{k: k for k in [] }}) if "{" in template else template
+    return template.format(**kwargs) if "{" in template else template
 
 
 # ── Ollama HTTP helpers ────────────────────────────────────────────────────
 
 async def list_models() -> list[dict]:
     """Return locally available Ollama models."""
-    try:
-        async with httpx.AsyncClient(timeout=5) as client:
-            resp = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
-            resp.raise_for_status()
-            data = resp.json()
-            models = data.get("models", [])
-            return [
-                {
-                    "name": m["name"],
-                    "size": m.get("size", 0),
-                    "modified_at": m.get("modified_at", ""),
-                }
-                for m in models
-            ]
-    except Exception:
-        return []
+    async with httpx.AsyncClient(timeout=8) as client:
+        resp = await client.get(f"{OLLAMA_BASE_URL}/api/tags")
+        resp.raise_for_status()
+        data = resp.json()
+        models = data.get("models", [])
+        return [
+            {
+                "name": m["name"],
+                "size": m.get("size", 0),
+                "modified_at": m.get("modified_at", ""),
+            }
+            for m in models
+        ]
 
 
 async def check_health() -> dict:
     """Check if Ollama is reachable."""
     try:
-        async with httpx.AsyncClient(timeout=3) as client:
-            resp = await client.get(f"{OLLAMA_BASE_URL}/")
-            return {"online": resp.status_code == 200}
-    except Exception:
-        return {"online": False}
+        models = await list_models()
+        return {
+            "online": True,
+            "base_url": OLLAMA_BASE_URL,
+            "models": len(models),
+            "error": None,
+        }
+    except Exception as exc:
+        return {
+            "online": False,
+            "base_url": OLLAMA_BASE_URL,
+            "models": 0,
+            "error": f"{type(exc).__name__}: {exc}",
+        }
+
+
+async def _resolve_model(model: str) -> str:
+    if model.strip():
+        return model.strip()
+    models = await list_models()
+    if not models:
+        raise OllamaServiceError(
+            "未检测到可用模型。请先执行: ollama pull qwen2.5:7b 或其它模型"
+        )
+    return str(models[0]["name"])
 
 
 async def chat(
@@ -95,10 +116,11 @@ async def chat(
     stream: bool = False,
 ) -> str:
     """Send a chat request to Ollama and return the assistant reply."""
+    chosen_model = await _resolve_model(model)
     system = _get_system_prompt(task, target_lang=target_lang)
 
     payload = {
-        "model": model,
+        "model": chosen_model,
         "messages": [
             {"role": "system", "content": system},
             {"role": "user", "content": user_content},
@@ -106,8 +128,27 @@ async def chat(
         "stream": stream,
     }
 
-    async with httpx.AsyncClient(timeout=300) as client:
-        resp = await client.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload)
-        resp.raise_for_status()
-        data = resp.json()
-        return data.get("message", {}).get("content", "").strip()
+    async with httpx.AsyncClient(timeout=OLLAMA_TIMEOUT_SECONDS) as client:
+        try:
+            resp = await client.post(f"{OLLAMA_BASE_URL}/api/chat", json=payload)
+            resp.raise_for_status()
+            data = resp.json()
+            text = data.get("message", {}).get("content", "").strip()
+            if text:
+                return text
+        except httpx.HTTPStatusError as exc:
+            # Some installations only support /api/generate or return model-not-found.
+            if exc.response.status_code not in (400, 404):
+                raise OllamaServiceError(f"Ollama 接口错误: {exc.response.status_code}") from exc
+
+        prompt = f"[System]\n{system}\n\n[User]\n{user_content}"
+        gen_resp = await client.post(
+            f"{OLLAMA_BASE_URL}/api/generate",
+            json={"model": chosen_model, "prompt": prompt, "stream": False},
+        )
+        gen_resp.raise_for_status()
+        gen_data = gen_resp.json()
+        text = str(gen_data.get("response", "")).strip()
+        if not text:
+            raise OllamaServiceError("Ollama 返回空响应，请检查模型是否可用")
+        return text
