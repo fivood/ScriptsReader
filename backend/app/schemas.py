@@ -54,7 +54,7 @@ class TranslationRequest(BaseModel):
     context_before: list[str] = Field(default_factory=list)
     context_after: list[str] = Field(default_factory=list)
     target_lang: str = "ZH"
-    provider: Literal["deepl"] = "deepl"
+    provider: str = "auto"  # auto | deepl | baidu | youdao
 
 
 class TranslationResponse(BaseModel):

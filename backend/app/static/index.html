@@ -81,6 +81,7 @@
         <div class="toolbar-actions">
           <input id="episode-search" type="search" placeholder="在当前集内搜索对白">
           <button id="clear-filters" class="ghost-btn">清空角色过滤</button>
+          <button id="open-settings" class="ghost-btn settings-toolbar-btn" title="API 设置">⚙</button>
         </div>
       </header>
 
@@ -137,11 +138,11 @@
               <span id="ollama-status" class="muted">检测中…</span>
             </div>
             <div class="ai-model-row">
-              <select id="ollama-model" class="model-select">
-                <option value="">加载模型中…</option>
-              </select>
-              <button id="ollama-refresh-models" class="ghost-btn" title="刷新模型列表">⟳</button>
+              <span id="ollama-model-label" class="muted" style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">未选择模型</span>
+              <button id="ollama-refresh-models" class="ghost-btn" title="在设置中选择模型" onclick="document.getElementById('open-settings').click()">⚙ 模型</button>
             </div>
+            <!-- 隐藏 select，供 JS 内部使用 -->
+            <select id="ollama-model" style="display:none"></select>
             <div class="ai-quick-actions">
               <button class="ai-action-btn" data-ai-task="summary">📋 本集摘要</button>
               <button class="ai-action-btn" data-ai-task="profile" id="ai-profile-btn" disabled>🎭 角色画像</button>
@@ -181,5 +182,76 @@
   </div>
 
   <script src="/static/app.js" defer></script>
+
+  <!-- ═══════════════ 设置模态框 ═══════════════ -->
+  <div id="settings-overlay" class="settings-overlay" hidden>
+    <div class="settings-modal" role="dialog" aria-modal="true" aria-label="API 设置">
+      <div class="settings-header">
+        <h2>⚙ API 设置</h2>
+        <button id="close-settings" class="ghost-btn" title="关闭">✕</button>
+      </div>
+      <div class="settings-body">
+
+        <section class="settings-section">
+          <h3>🤖 本地 AI（Ollama）</h3>
+          <label class="settings-label" for="s-ollama-url">服务地址</label>
+          <input id="s-ollama-url" type="text" placeholder="http://localhost:11434">
+          <label class="settings-label" style="margin-top:10px">选择模型</label>
+          <div class="settings-row">
+            <select id="s-ollama-model" class="model-select" style="flex:1">
+              <option value="">加载中…</option>
+            </select>
+            <button id="s-ollama-refresh" class="ghost-btn" title="刷新模型列表">⟳</button>
+          </div>
+          <span id="s-ollama-status" class="settings-hint"></span>
+        </section>
+
+        <section class="settings-section">
+          <h3>🌐 翻译服务</h3>
+          <label class="settings-label" for="s-trans-provider">优先 Provider</label>
+          <select id="s-trans-provider" class="model-select">
+            <option value="auto">auto（自动选第一个可用）</option>
+            <option value="baidu">百度翻译</option>
+            <option value="youdao">有道智云</option>
+            <option value="deepl">DeepL</option>
+          </select>
+
+          <details class="settings-provider-group">
+            <summary>百度翻译 <span id="s-baidu-badge" class="settings-badge"></span></summary>
+            <div class="settings-provider-body">
+              <label class="settings-label" for="s-baidu-appid">App ID</label>
+              <input id="s-baidu-appid" type="text" placeholder="留空保持不变">
+              <label class="settings-label" for="s-baidu-secret">Secret Key</label>
+              <input id="s-baidu-secret" type="password" placeholder="留空保持不变">
+            </div>
+          </details>
+
+          <details class="settings-provider-group">
+            <summary>有道智云 <span id="s-youdao-badge" class="settings-badge"></span></summary>
+            <div class="settings-provider-body">
+              <label class="settings-label" for="s-youdao-appkey">App Key</label>
+              <input id="s-youdao-appkey" type="text" placeholder="留空保持不变">
+              <label class="settings-label" for="s-youdao-secret">Secret Key</label>
+              <input id="s-youdao-secret" type="password" placeholder="留空保持不变">
+            </div>
+          </details>
+
+          <details class="settings-provider-group">
+            <summary>DeepL <span id="s-deepl-badge" class="settings-badge"></span></summary>
+            <div class="settings-provider-body">
+              <label class="settings-label" for="s-deepl-key">API Key</label>
+              <input id="s-deepl-key" type="password" placeholder="留空保持不变">
+            </div>
+          </details>
+        </section>
+
+      </div>
+      <div class="settings-footer">
+        <span id="s-save-msg" class="settings-hint"></span>
+        <button id="s-save" class="secondary-btn">保存设置</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

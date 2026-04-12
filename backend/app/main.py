@@ -11,7 +11,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from .config import AUTH_TOKEN, STATIC_DIR
 from .database import init_db
-from .routers import annotations, catalog, collections, downloads, imports, ollama, scripts, search, translate
+from .routers import annotations, catalog, collections, downloads, imports, ollama, scripts, search, settings, translate
 from .services.library import rebuild_library
 
 
@@ -72,6 +72,7 @@ app.include_router(annotations.router)
 app.include_router(catalog.router)
 app.include_router(ollama.router)
 app.include_router(collections.router)
+app.include_router(settings.router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 

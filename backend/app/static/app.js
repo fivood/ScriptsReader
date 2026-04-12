@@ -50,10 +50,30 @@ const elements = {
   advSpringfieldSlug: document.getElementById('adv-springfield-slug'),
   advSpringfieldDownload: document.getElementById('adv-springfield-download'),
   ollamaStatus: document.getElementById('ollama-status'),
+  ollamaModelLabel: document.getElementById('ollama-model-label'),
   ollamaModel: document.getElementById('ollama-model'),
   ollamaRefreshModels: document.getElementById('ollama-refresh-models'),
   aiPanel: document.getElementById('ai-panel'),
   aiProfileBtn: document.getElementById('ai-profile-btn'),
+  // ── Settings modal ──
+  openSettings: document.getElementById('open-settings'),
+  settingsOverlay: document.getElementById('settings-overlay'),
+  closeSettings: document.getElementById('close-settings'),
+  sOllamaUrl: document.getElementById('s-ollama-url'),
+  sOllamaModel: document.getElementById('s-ollama-model'),
+  sOllamaRefresh: document.getElementById('s-ollama-refresh'),
+  sOllamaStatus: document.getElementById('s-ollama-status'),
+  sTransProvider: document.getElementById('s-trans-provider'),
+  sBaiduAppid: document.getElementById('s-baidu-appid'),
+  sBaiduSecret: document.getElementById('s-baidu-secret'),
+  sBaiduBadge: document.getElementById('s-baidu-badge'),
+  sYoudaoAppkey: document.getElementById('s-youdao-appkey'),
+  sYoudaoSecret: document.getElementById('s-youdao-secret'),
+  sYoudaoBadge: document.getElementById('s-youdao-badge'),
+  sDeeplKey: document.getElementById('s-deepl-key'),
+  sDeeplBadge: document.getElementById('s-deepl-badge'),
+  sSave: document.getElementById('s-save'),
+  sSaveMsg: document.getElementById('s-save-msg'),
   translateAllBtn: document.getElementById('translate-all-btn'),
   collectionCount: document.getElementById('collection-count'),
   collectionSelect: document.getElementById('collection-select'),
@@ -798,6 +818,8 @@ async function loadOllamaStatus() {
       await loadOllamaModels();
     } else {
       elements.ollamaModel.innerHTML = '<option value="">Ollama 未连接</option>';
+      if (elements.sOllamaModel) elements.sOllamaModel.innerHTML = '<option value="">Ollama 未连接</option>';
+      if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = 'Ollama 未连接';
       state.ollamaModel = '';
     }
   } catch {
@@ -806,6 +828,8 @@ async function loadOllamaStatus() {
     elements.ollamaStatus.className = 'muted ai-offline';
     elements.ollamaStatus.title = '无法连接到 /api/ollama/health';
     elements.ollamaModel.innerHTML = '<option value="">Ollama 未连接</option>';
+    if (elements.sOllamaModel) elements.sOllamaModel.innerHTML = '<option value="">Ollama 未连接</option>';
+    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = 'Ollama 未连接';
     state.ollamaModel = '';
   }
 }
@@ -813,23 +837,100 @@ async function loadOllamaStatus() {
 async function loadOllamaModels() {
   try {
     const models = await request('/api/ollama/models');
-    elements.ollamaModel.innerHTML = models.length
+    const opts = models.length
       ? models.map(m => `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join('')
       : '<option value="">无可用模型（请先 ollama pull）</option>';
+    elements.ollamaModel.innerHTML = opts;
+    if (elements.sOllamaModel) elements.sOllamaModel.innerHTML = opts;
     if (models.length) {
       state.ollamaModel = models[0].name;
       elements.ollamaModel.value = models[0].name;
+      if (elements.sOllamaModel) elements.sOllamaModel.value = models[0].name;
+      if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = models[0].name;
     } else {
       state.ollamaModel = '';
+      if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = '无可用模型';
     }
   } catch {
     elements.ollamaModel.innerHTML = '<option value="">模型加载失败</option>';
+    if (elements.sOllamaModel) elements.sOllamaModel.innerHTML = '<option value="">模型加载失败</option>';
+    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = '模型加载失败';
     state.ollamaModel = '';
   }
 }
 
 function getSelectedModel() {
-  return elements.ollamaModel.value || state.ollamaModel;
+  return elements.sOllamaModel?.value || elements.ollamaModel.value || state.ollamaModel;
+}
+
+// ── Settings helpers ──────────────────────────────────────────────────────
+
+function setBadge(el, configured) {
+  if (!el) return;
+  el.textContent = configured ? '已配置' : '未配置';
+  el.className = 'settings-badge ' + (configured ? 'configured' : 'not-configured');
+}
+
+async function loadSettings() {
+  try {
+    const data = await request('/api/settings');
+    if (elements.sOllamaUrl) elements.sOllamaUrl.value = data.ollama_base_url || '';
+    if (elements.sTransProvider) elements.sTransProvider.value = data.translation_provider || 'auto';
+    setBadge(elements.sBaiduBadge, data.baidu_configured);
+    setBadge(elements.sYoudaoBadge, data.youdao_configured);
+    setBadge(elements.sDeeplBadge, data.deepl_configured);
+  } catch {
+    // silent fail — settings modal will still open
+  }
+}
+
+async function saveSettings() {
+  const patch = {};
+  const ollUrl = elements.sOllamaUrl?.value.trim();
+  if (ollUrl) patch.ollama_base_url = ollUrl;
+
+  const prov = elements.sTransProvider?.value;
+  if (prov) patch.translation_provider = prov;
+
+  const fields = [
+    ['sBaiduAppid', 'baidu_app_id'],
+    ['sBaiduSecret', 'baidu_secret_key'],
+    ['sYoudaoAppkey', 'youdao_app_key'],
+    ['sYoudaoSecret', 'youdao_secret_key'],
+    ['sDeeplKey', 'deepl_api_key'],
+  ];
+  for (const [elKey, patchKey] of fields) {
+    const val = elements[elKey]?.value.trim();
+    if (val) patch[patchKey] = val;
+  }
+
+  if (!Object.keys(patch).length) {
+    elements.sSaveMsg.textContent = '没有要保存的变更';
+    setTimeout(() => { if (elements.sSaveMsg) elements.sSaveMsg.textContent = ''; }, 2000);
+    return;
+  }
+
+  try {
+    elements.sSave.disabled = true;
+    await request('/api/settings', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    elements.sSaveMsg.textContent = '✓ 已保存';
+    // clear password fields after save
+    ['sBaiduSecret', 'sYoudaoSecret', 'sDeeplKey'].forEach(k => {
+      if (elements[k]) elements[k].value = '';
+    });
+    await loadSettings();
+    // if URL changed, re-probe Ollama
+    if (patch.ollama_base_url) await loadOllamaStatus();
+  } catch {
+    elements.sSaveMsg.textContent = '✗ 保存失败';
+  } finally {
+    elements.sSave.disabled = false;
+    setTimeout(() => { if (elements.sSaveMsg) elements.sSaveMsg.textContent = ''; }, 3000);
+  }
 }
 
 function buildLineContext(lineIndex) {
@@ -1096,10 +1197,44 @@ function wireEvents() {
     const idx = topVisibleLineIndex() || state.focusedLineIndex;
     if (idx) saveReadingProgress(idx, true);
   });
-  elements.ollamaRefreshModels.addEventListener('click', loadOllamaStatus);
+  elements.ollamaRefreshModels.addEventListener('click', () => elements.openSettings.click());
   elements.ollamaModel.addEventListener('change', () => {
     state.ollamaModel = elements.ollamaModel.value;
   });
+  // ── Settings modal ──
+  elements.openSettings.addEventListener('click', async () => {
+    await loadSettings();
+    // sync model list into modal select
+    if (elements.sOllamaModel && elements.ollamaModel) {
+      elements.sOllamaModel.innerHTML = elements.ollamaModel.innerHTML;
+      elements.sOllamaModel.value = state.ollamaModel;
+    }
+    elements.settingsOverlay.hidden = false;
+  });
+  elements.closeSettings.addEventListener('click', () => {
+    elements.settingsOverlay.hidden = true;
+  });
+  elements.settingsOverlay.addEventListener('click', e => {
+    if (e.target === elements.settingsOverlay) elements.settingsOverlay.hidden = true;
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && !elements.settingsOverlay.hidden) elements.settingsOverlay.hidden = true;
+  });
+  elements.sOllamaRefresh.addEventListener('click', async () => {
+    elements.sOllamaStatus.textContent = '刷新中…';
+    await loadOllamaStatus();
+    if (elements.sOllamaModel && elements.ollamaModel) {
+      elements.sOllamaModel.innerHTML = elements.ollamaModel.innerHTML;
+      elements.sOllamaModel.value = state.ollamaModel;
+    }
+    elements.sOllamaStatus.textContent = state.ollamaOnline ? '已连接' : '未连接';
+  });
+  elements.sOllamaModel.addEventListener('change', () => {
+    state.ollamaModel = elements.sOllamaModel.value;
+    elements.ollamaModel.value = elements.sOllamaModel.value;
+    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = elements.sOllamaModel.value || '未选择模型';
+  });
+  elements.sSave.addEventListener('click', saveSettings);
   document.querySelectorAll('[data-ai-task]').forEach(btn => {
     btn.addEventListener('click', () => aiEpisodeTask(btn.dataset.aiTask));
   });

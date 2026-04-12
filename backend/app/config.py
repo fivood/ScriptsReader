@@ -23,6 +23,17 @@ DEFAULT_LIBRARY_SOURCES = [
 DEEPL_API_KEY = os.getenv("DEEPL_API_KEY", "").strip()
 DEEPL_API_URL = os.getenv("DEEPL_API_URL", "https://api-free.deepl.com/v2/translate").strip()
 
+# 百度翻译 API（国内可用，https://fanyi-api.baidu.com）
+BAIDU_TRANSLATE_APP_ID = os.getenv("BAIDU_TRANSLATE_APP_ID", "").strip()
+BAIDU_TRANSLATE_SECRET_KEY = os.getenv("BAIDU_TRANSLATE_SECRET_KEY", "").strip()
+
+# 有道智云翻译 API（国内可用，https://ai.youdao.com）
+YOUDAO_APP_KEY = os.getenv("YOUDAO_APP_KEY", "").strip()
+YOUDAO_SECRET_KEY = os.getenv("YOUDAO_SECRET_KEY", "").strip()
+
+# 翻译 Provider 优先级：auto = 自动选择第一个已配置的
+TRANSLATION_PROVIDER = os.getenv("TRANSLATION_PROVIDER", "auto").strip().lower()
+
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434").strip()
 OLLAMA_TIMEOUT_SECONDS = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "120").strip() or "120")
 
