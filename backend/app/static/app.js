@@ -31,6 +31,8 @@ const elements = {
   dialogueList: document.getElementById('dialogue-list'),
   speakerFilters: document.getElementById('speaker-filters'),
   speakerCount: document.getElementById('speaker-count'),
+  trackSpeakerBtn: document.getElementById('track-speaker-btn'),
+  speakerTrackResults: document.getElementById('speaker-track-results'),
   translationPanel: document.getElementById('translation-panel'),
   episodeSearch: document.getElementById('episode-search'),
   clearFilters: document.getElementById('clear-filters'),
@@ -173,6 +175,39 @@ function renderSpeakers() {
   if (elements.aiProfileBtn) {
     elements.aiProfileBtn.disabled = state.selectedSpeakers.size !== 1;
   }
+  if (elements.trackSpeakerBtn) {
+    elements.trackSpeakerBtn.disabled = state.selectedSpeakers.size !== 1;
+  }
+}
+
+async function runSpeakerTimeline() {
+  if (state.selectedSpeakers.size !== 1) {
+    elements.speakerTrackResults.className = 'search-results empty-state';
+    elements.speakerTrackResults.textContent = '请先选择 1 个角色。';
+    return;
+  }
+  const speaker = [...state.selectedSpeakers][0];
+  const result = await request(`/api/search/speaker/${encodeURIComponent(speaker)}?limit=500`);
+  if (!result.items.length) {
+    elements.speakerTrackResults.className = 'search-results empty-state';
+    elements.speakerTrackResults.textContent = `未找到 ${speaker} 的跨集台词。`;
+    return;
+  }
+
+  elements.speakerTrackResults.className = 'search-results';
+  elements.speakerTrackResults.innerHTML = result.items.map(item => `
+    <button class="search-hit" data-track-episode="${item.episode_id}" data-track-line="${item.line_index}">
+      <div class="search-hit-meta">${escapeHtml(item.show_name)} · S${String(item.season_number).padStart(2, '0')} · ${escapeHtml(item.episode_code || item.episode_title)} · L${item.line_index}</div>
+      <div class="search-hit-line"><strong>${escapeHtml(item.speaker || 'DIRECTION')}:</strong> ${escapeHtml(item.text)}</div>
+    </button>
+  `).join('');
+
+  document.querySelectorAll('[data-track-episode]').forEach(button => {
+    button.addEventListener('click', async () => {
+      state.focusedLineIndex = Number(button.dataset.trackLine);
+      await selectEpisode(Number(button.dataset.trackEpisode));
+    });
+  });
 }
 
 function renderDialogue() {
@@ -969,6 +1004,8 @@ function wireEvents() {
     state.selectedSpeakers.clear();
     renderSpeakers();
     renderDialogue();
+    elements.speakerTrackResults.className = 'search-results empty-state';
+    elements.speakerTrackResults.textContent = '选中 1 个角色后可跨集追踪其全部台词。';
   });
   elements.runGlobalSearch.addEventListener('click', runGlobalSearch);
   elements.globalSearch.addEventListener('keydown', event => {
@@ -1009,6 +1046,7 @@ function wireEvents() {
     state.collectionFilter = event.target.value || '';
     renderCollections();
   });
+  elements.trackSpeakerBtn.addEventListener('click', runSpeakerTimeline);
   elements.dialogueList.addEventListener('scroll', () => {
     const idx = topVisibleLineIndex();
     if (idx) saveReadingProgress(idx);
