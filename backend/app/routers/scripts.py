@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
-from ..services.library import fetch_episode_content, fetch_library_tree, rebuild_library
+from ..schemas import ReadingProgressUpsertRequest
+from ..services.library import (
+    fetch_episode_content,
+    fetch_library_tree,
+    fetch_reading_progress,
+    rebuild_library,
+    upsert_reading_progress,
+)
 
 router = APIRouter(prefix="/api/library", tags=["library"])
 
@@ -22,6 +29,22 @@ def rebuild() -> dict:
 def get_episode(episode_id: int, speakers: str | None = Query(default=None)) -> dict:
     selected = {item.strip() for item in speakers.split(",") if item.strip()} if speakers else None
     payload = fetch_episode_content(episode_id, selected)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Episode not found")
+    return payload
+
+
+@router.get("/progress/{episode_id}")
+def get_progress(episode_id: int) -> dict:
+    payload = fetch_reading_progress(episode_id)
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Episode not found")
+    return payload
+
+
+@router.put("/progress")
+def put_progress(body: ReadingProgressUpsertRequest) -> dict:
+    payload = upsert_reading_progress(body.episode_id, body.last_line)
     if payload is None:
         raise HTTPException(status_code=404, detail="Episode not found")
     return payload

@@ -396,6 +396,25 @@ summary {
   background: rgba(255, 255, 255, 0.75);
 }
 
+.reading-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.reading-dot.unread {
+  background: rgba(124, 113, 94, 0.45);
+}
+
+.reading-dot.in_progress {
+  background: rgba(181, 82, 51, 0.9);
+}
+
+.reading-dot.finished {
+  background: rgba(58, 132, 97, 0.9);
+}
+
 .episode-link.active {
   background: linear-gradient(135deg, rgba(181, 82, 51, 0.15), rgba(255, 255, 255, 0.88));
   border-color: rgba(181, 82, 51, 0.28);

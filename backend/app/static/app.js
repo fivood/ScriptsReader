@@ -11,6 +11,8 @@ const state = {
   ollamaModel: '',
   lineTranslations: {},
   translateAllActive: false,
+  readingProgress: {},
+  progressSaveTimer: null,
 };
 
 const elements = {
@@ -230,6 +232,13 @@ function renderDialogue() {
   document.querySelectorAll('[data-sentiment-line]').forEach(button => {
     button.addEventListener('click', () => aiLineTask('sentiment', Number(button.dataset.sentimentLine)));
   });
+  document.querySelectorAll('[data-line-index]').forEach(card => {
+    card.addEventListener('click', () => {
+      const lineIndex = Number(card.dataset.lineIndex);
+      state.focusedLineIndex = lineIndex;
+      saveReadingProgress(lineIndex);
+    });
+  });
 }
 
 function escapeHtml(text) {
@@ -238,11 +247,61 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+async function saveReadingProgress(lineIndex, force = false) {
+  if (!state.currentEpisode || !lineIndex) return;
+  const episodeId = state.currentEpisode.id;
+  if (!force && state.progressSaveTimer) {
+    window.clearTimeout(state.progressSaveTimer);
+  }
+  const runSave = async () => {
+    try {
+      const progress = await request('/api/library/progress', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ episode_id: episodeId, last_line: Number(lineIndex) }),
+      });
+      state.readingProgress[episodeId] = progress;
+      const show = state.library.find(s => s.seasons.some(se => se.episodes.some(ep => ep.id === episodeId)));
+      if (show) {
+        for (const season of show.seasons) {
+          const ep = season.episodes.find(item => item.id === episodeId);
+          if (ep) {
+            ep.last_line = progress.last_line;
+            ep.reading_status = progress.status;
+            break;
+          }
+        }
+      }
+      renderLibrary();
+    } catch {
+      // Ignore transient save failures.
+    }
+  };
+
+  if (force) {
+    await runSave();
+    return;
+  }
+  state.progressSaveTimer = window.setTimeout(runSave, 1200);
+}
+
+function topVisibleLineIndex() {
+  const cards = [...elements.dialogueList.querySelectorAll('[data-line-index]')];
+  if (!cards.length) return null;
+  const containerTop = elements.dialogueList.getBoundingClientRect().top;
+  const firstVisible = cards.find(card => card.getBoundingClientRect().bottom > containerTop + 8);
+  if (!firstVisible) return null;
+  return Number(firstVisible.dataset.lineIndex);
+}
+
 async function selectEpisode(episodeId) {
   state.selectedEpisodeId = episodeId;
   const speakerQuery = state.selectedSpeakers.size ? `?speakers=${encodeURIComponent([...state.selectedSpeakers].join(','))}` : '';
   state.currentEpisode = await request(`/api/library/episodes/${episodeId}${speakerQuery}`);
   state.annotations = await request(`/api/annotations/episodes/${episodeId}`);
+  const progress = await request(`/api/library/progress/${episodeId}`);
+  state.readingProgress[episodeId] = progress;
+  state.focusedLineIndex = progress.last_line || null;
   state.selectedSpeakers.clear();
   renderLibrary();
   elements.episodeTitle.textContent = `${state.currentEpisode.episode_code || ''} ${state.currentEpisode.title}`.trim();
@@ -337,6 +396,17 @@ async function runGlobalSearch() {
 
 async function loadLibrary() {
   state.library = await request('/api/library/shows');
+  for (const show of state.library) {
+    for (const season of show.seasons) {
+      for (const episode of season.episodes) {
+        state.readingProgress[episode.id] = {
+          episode_id: episode.id,
+          last_line: episode.last_line || 0,
+          status: episode.reading_status || 'unread',
+        };
+      }
+    }
+  }
   renderLibrary();
 }
 

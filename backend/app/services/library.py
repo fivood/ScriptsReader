@@ -139,9 +139,12 @@ def fetch_library_tree() -> list[dict]:
             for season in seasons:
                 episodes = conn.execute(
                     """
-                    SELECT episodes.id, episodes.episode_code, episodes.title, COUNT(dialogue_lines.id) AS line_count
+                    SELECT episodes.id, episodes.episode_code, episodes.title,
+                           COUNT(dialogue_lines.id) AS line_count,
+                           COALESCE(reading_progress.last_line, 0) AS last_line
                     FROM episodes
                     LEFT JOIN dialogue_lines ON dialogue_lines.episode_id = episodes.id
+                    LEFT JOIN reading_progress ON reading_progress.episode_id = episodes.id
                     WHERE episodes.season_id = ?
                     GROUP BY episodes.id
                     ORDER BY episodes.episode_code IS NULL, episodes.episode_code, episodes.title
@@ -158,6 +161,14 @@ def fetch_library_tree() -> list[dict]:
                                 "episode_code": episode["episode_code"],
                                 "title": episode["title"],
                                 "line_count": int(episode["line_count"]),
+                                "reading_status": (
+                                    "finished"
+                                    if int(episode["line_count"]) > 0 and int(episode["last_line"] or 0) >= int(episode["line_count"])
+                                    else "in_progress"
+                                    if int(episode["last_line"] or 0) > 0
+                                    else "unread"
+                                ),
+                                "last_line": int(episode["last_line"] or 0),
                             }
                             for episode in episodes
                         ],
@@ -226,4 +237,75 @@ def fetch_episode_content(episode_id: int, speakers: set[str] | None = None) -> 
             }
             for line in lines
         ],
+    }
+
+
+def upsert_reading_progress(episode_id: int, last_line: int) -> dict | None:
+    init_db()
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT COUNT(1) AS c FROM episodes WHERE id = ?",
+            (episode_id,),
+        ).fetchone()
+        if not row or int(row["c"]) == 0:
+            return None
+
+        conn.execute(
+            """
+            INSERT INTO reading_progress(episode_id, last_line, updated_at)
+            VALUES(?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(episode_id) DO UPDATE SET
+                last_line = excluded.last_line,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (episode_id, max(0, int(last_line))),
+        )
+
+        payload = conn.execute(
+            "SELECT episode_id, last_line, updated_at FROM reading_progress WHERE episode_id = ?",
+            (episode_id,),
+        ).fetchone()
+        line_count_row = conn.execute(
+            "SELECT COUNT(1) AS c FROM dialogue_lines WHERE episode_id = ?",
+            (episode_id,),
+        ).fetchone()
+
+    line_count = int(line_count_row["c"] or 0)
+    saved_line = int(payload["last_line"])
+    status = "finished" if line_count > 0 and saved_line >= line_count else "in_progress" if saved_line > 0 else "unread"
+    return {
+        "episode_id": int(payload["episode_id"]),
+        "last_line": saved_line,
+        "updated_at": payload["updated_at"],
+        "status": status,
+    }
+
+
+def fetch_reading_progress(episode_id: int) -> dict | None:
+    init_db()
+    with get_connection() as conn:
+        exists = conn.execute(
+            "SELECT COUNT(1) AS c FROM episodes WHERE id = ?",
+            (episode_id,),
+        ).fetchone()
+        if not exists or int(exists["c"]) == 0:
+            return None
+
+        row = conn.execute(
+            "SELECT episode_id, last_line, updated_at FROM reading_progress WHERE episode_id = ?",
+            (episode_id,),
+        ).fetchone()
+        line_count_row = conn.execute(
+            "SELECT COUNT(1) AS c FROM dialogue_lines WHERE episode_id = ?",
+            (episode_id,),
+        ).fetchone()
+
+    line_count = int(line_count_row["c"] or 0)
+    last_line = int(row["last_line"]) if row else 0
+    status = "finished" if line_count > 0 and last_line >= line_count else "in_progress" if last_line > 0 else "unread"
+    return {
+        "episode_id": int(episode_id),
+        "last_line": last_line,
+        "updated_at": row["updated_at"] if row else "",
+        "status": status,
     }

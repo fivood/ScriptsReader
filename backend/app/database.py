@@ -61,11 +61,20 @@ CREATE TABLE IF NOT EXISTS notes (
     UNIQUE(episode_id, line_index)
 );
 
+CREATE TABLE IF NOT EXISTS reading_progress (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    episode_id INTEGER NOT NULL REFERENCES episodes(id) ON DELETE CASCADE,
+    last_line INTEGER NOT NULL DEFAULT 0,
+    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(episode_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_episodes_season_id ON episodes(season_id);
 CREATE INDEX IF NOT EXISTS idx_lines_episode_id ON dialogue_lines(episode_id);
 CREATE INDEX IF NOT EXISTS idx_lines_speaker ON dialogue_lines(speaker);
 CREATE INDEX IF NOT EXISTS idx_highlights_episode_id ON highlights(episode_id);
 CREATE INDEX IF NOT EXISTS idx_notes_episode_id ON notes(episode_id);
+CREATE INDEX IF NOT EXISTS idx_reading_progress_episode_id ON reading_progress(episode_id);
 """
 
 

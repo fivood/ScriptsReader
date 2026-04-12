@@ -101,3 +101,15 @@ class HighlightUpsertRequest(AnnotationPayload):
 
 class NoteUpsertRequest(AnnotationPayload):
     content: str | None = None
+
+
+class ReadingProgressUpsertRequest(BaseModel):
+    episode_id: int
+    last_line: int = Field(default=0, ge=0)
+
+
+class ReadingProgressPayload(BaseModel):
+    episode_id: int
+    last_line: int
+    updated_at: str
+    status: Literal["unread", "in_progress", "finished"] = "unread"
