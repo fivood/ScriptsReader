@@ -1,0 +1,16 @@
+from __future__ import annotations
+
+from fastapi import APIRouter, Query
+
+from ..services.search import search_lines
+
+router = APIRouter(prefix="/api/search", tags=["search"])
+
+
+@router.get("/lines")
+def search_dialogue_lines(
+    q: str = Query(min_length=1, description="Keyword to search in dialogue text and speaker"),
+    limit: int = Query(default=50, ge=1, le=200),
+) -> dict:
+    items = search_lines(q, limit)
+    return {"query": q, "count": len(items), "items": items}
