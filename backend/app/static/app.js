@@ -245,14 +245,14 @@ function renderDialogue() {
           <p>${escapeHtml(line.text)}</p>
           ${inlineTranslation ? `<div class="inline-translation">${escapeHtml(inlineTranslation)}</div>` : ''}
           <div class="line-actions">
-            <button class="tiny-btn" data-translate-line="${line.line_index}">译</button>
-            <button class="tiny-btn ai-btn" data-analyze-line="${line.line_index}">析</button>
-            <button class="tiny-btn ai-btn" data-explain-line="${line.line_index}">注释</button>
-            <button class="tiny-btn ai-btn" data-rewrite-line="${line.line_index}">改</button>
-            <button class="tiny-btn ai-btn" data-sentiment-line="${line.line_index}">情</button>
-            <button class="tiny-btn" data-collect-line="${line.line_index}">藏</button>
-            <button class="tiny-btn" data-highlight-line="${line.line_index}">标</button>
-            <button class="tiny-btn" data-note-line="${line.line_index}">注</button>
+            <button class="tiny-btn" data-translate-line="${line.line_index}" data-tip="逐行翻译" aria-label="逐行翻译">译</button>
+            <button class="tiny-btn ai-btn" data-analyze-line="${line.line_index}" data-tip="台词分析" aria-label="台词分析">析</button>
+            <button class="tiny-btn ai-btn" data-explain-line="${line.line_index}" data-tip="文化注释" aria-label="文化注释">注释</button>
+            <button class="tiny-btn ai-btn" data-rewrite-line="${line.line_index}" data-tip="改写台词" aria-label="改写台词">改</button>
+            <button class="tiny-btn ai-btn" data-sentiment-line="${line.line_index}" data-tip="情感标注" aria-label="情感标注">情</button>
+            <button class="tiny-btn" data-collect-line="${line.line_index}" data-tip="收藏台词" aria-label="收藏台词">藏</button>
+            <button class="tiny-btn" data-highlight-line="${line.line_index}" data-tip="高亮标记" aria-label="高亮标记">标</button>
+            <button class="tiny-btn" data-note-line="${line.line_index}" data-tip="添加笔记" aria-label="添加笔记">注</button>
           </div>
         </div>
         ${noteText ? `<p class="note-preview">NOTE: ${escapeHtml(noteText)}</p>` : ''}
@@ -499,6 +499,12 @@ async function selectEpisode(episodeId) {
   elements.translateAllBtn.classList.remove('running');
   renderSpeakers();
   renderDialogue();
+
+  // Close mobile sidebar after episode selection
+  const sidebarEl = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  if (sidebarEl) sidebarEl.classList.remove('open');
+  if (overlay) overlay.classList.remove('open');
 
   if (state.focusedLineIndex) {
     const target = document.querySelector(`[data-line-index="${state.focusedLineIndex}"]`);
@@ -993,6 +999,17 @@ async function translateLine(lineIndex) {
 }
 
 function wireEvents() {
+  // Mobile sidebar toggle
+  const menuBtn = document.getElementById('mobile-menu-btn');
+  const sidebarEl = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  if (menuBtn && sidebarEl && overlay) {
+    const openSidebar = () => { sidebarEl.classList.add('open'); overlay.classList.add('open'); };
+    const closeSidebar = () => { sidebarEl.classList.remove('open'); overlay.classList.remove('open'); };
+    menuBtn.addEventListener('click', () => sidebarEl.classList.contains('open') ? closeSidebar() : openSidebar());
+    overlay.addEventListener('click', closeSidebar);
+  }
+
   elements.librarySearch.addEventListener('input', renderLibrary);
   elements.rebuildLibrary.addEventListener('click', rebuildLibrary);
   elements.manualImport.addEventListener('change', event => uploadFiles(event.target.files));
