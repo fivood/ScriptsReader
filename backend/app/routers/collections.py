@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+import json
+
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, Response
 
 from ..schemas import CollectionCreateRequest, CollectionItemCreateRequest
 from ..services.collections import (
     add_collection_item,
     create_collection,
     delete_collection,
+    export_collection_json_payload,
     export_collection_markdown,
     list_collections,
     remove_collection_item,
@@ -59,8 +62,26 @@ def delete_collection_item_api(item_id: int) -> dict:
 
 
 @router.get("/{collection_id}/export.md", response_class=PlainTextResponse)
-def export_collection_md(collection_id: int) -> str:
+def export_collection_md(collection_id: int) -> Response:
     try:
-        return export_collection_markdown(collection_id)
+        content = export_collection_markdown(collection_id)
+        return Response(
+            content=content,
+            media_type="text/markdown; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="collection-{collection_id}.md"'},
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.get("/{collection_id}/export.json")
+def export_collection_json(collection_id: int) -> Response:
+    try:
+        payload = export_collection_json_payload(collection_id)
+        return Response(
+            content=json.dumps(payload, ensure_ascii=False, indent=2),
+            media_type="application/json; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="collection-{collection_id}.json"'},
+        )
     except ValueError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

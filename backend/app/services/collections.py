@@ -17,6 +17,14 @@ def _normalize_tags(tags: list[str] | None) -> str:
     return ",".join(deduped)
 
 
+def _get_collection_or_raise(collection_id: int) -> dict:
+    collections = list_collections()
+    collection = next((item for item in collections if item["id"] == collection_id), None)
+    if not collection:
+        raise ValueError("collection not found")
+    return collection
+
+
 def list_collections() -> list[dict]:
     init_db()
     with get_connection() as conn:
@@ -166,10 +174,7 @@ def remove_collection_item(item_id: int) -> None:
 
 
 def export_collection_markdown(collection_id: int) -> str:
-    collections = list_collections()
-    collection = next((item for item in collections if item["id"] == collection_id), None)
-    if not collection:
-        raise ValueError("collection not found")
+    collection = _get_collection_or_raise(collection_id)
 
     lines = [f"# 收藏库 - {collection['name']}", ""]
     for item in collection["items"]:
@@ -185,3 +190,15 @@ def export_collection_markdown(collection_id: int) -> str:
         lines.append(f"> {item['text']}")
         lines.append("")
     return "\n".join(lines).strip() + "\n"
+
+
+def export_collection_json_payload(collection_id: int) -> dict:
+    collection = _get_collection_or_raise(collection_id)
+    return {
+        "id": collection["id"],
+        "name": collection["name"],
+        "item_count": collection["item_count"],
+        "created_at": collection["created_at"],
+        "updated_at": collection["updated_at"],
+        "items": collection["items"],
+    }

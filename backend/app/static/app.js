@@ -56,6 +56,8 @@ const elements = {
   collectionCount: document.getElementById('collection-count'),
   collectionSelect: document.getElementById('collection-select'),
   collectionDelete: document.getElementById('collection-delete'),
+  collectionExportMd: document.getElementById('collection-export-md'),
+  collectionExportJson: document.getElementById('collection-export-json'),
   collectionName: document.getElementById('collection-name'),
   collectionCreate: document.getElementById('collection-create'),
   collectionFilter: document.getElementById('collection-filter'),
@@ -327,10 +329,14 @@ function renderCollections() {
     elements.collectionItems.className = 'collection-items empty-state';
     elements.collectionItems.textContent = '暂无收藏内容';
     elements.collectionDelete.disabled = true;
+    elements.collectionExportMd.disabled = true;
+    elements.collectionExportJson.disabled = true;
     return;
   }
 
   elements.collectionDelete.disabled = false;
+  elements.collectionExportMd.disabled = false;
+  elements.collectionExportJson.disabled = false;
   const keyword = state.collectionFilter.trim().toLowerCase();
   const filtered = selected.items.filter(item => {
     if (!keyword) return true;
@@ -400,6 +406,12 @@ async function deleteSelectedCollection() {
   if (!confirm('确认删除当前收藏夹及其条目？')) return;
   await request(`/api/collections/${state.selectedCollectionId}`, { method: 'DELETE' });
   await loadCollections();
+}
+
+function exportSelectedCollection(kind) {
+  if (!state.selectedCollectionId) return;
+  const suffix = kind === 'json' ? 'json' : 'md';
+  window.open(`/api/collections/${state.selectedCollectionId}/export.${suffix}`, '_blank');
 }
 
 async function collectLine(lineIndex) {
@@ -984,6 +996,8 @@ function wireEvents() {
   elements.translateAllBtn.addEventListener('click', translateAll);
   elements.collectionCreate.addEventListener('click', createCollection);
   elements.collectionDelete.addEventListener('click', deleteSelectedCollection);
+  elements.collectionExportMd.addEventListener('click', () => exportSelectedCollection('md'));
+  elements.collectionExportJson.addEventListener('click', () => exportSelectedCollection('json'));
   elements.collectionName.addEventListener('keydown', event => {
     if (event.key === 'Enter') createCollection();
   });

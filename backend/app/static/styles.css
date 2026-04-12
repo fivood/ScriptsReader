@@ -690,6 +690,10 @@ summary {
   margin-bottom: 8px;
 }
 
+.collection-row.exports-row {
+  grid-template-columns: 1fr 1fr;
+}
+
 .collection-items {
   display: grid;
   gap: 8px;
