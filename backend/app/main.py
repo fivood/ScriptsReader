@@ -20,7 +20,7 @@ from .services.library import rebuild_library
 class TokenAuthMiddleware(BaseHTTPMiddleware):
     """If SR_AUTH_TOKEN is set, require ?token= or Authorization header."""
 
-    OPEN_PATHS = {"/api/health", "/login"}
+    OPEN_PATHS = {"/api/health", "/api/version", "/login"}
 
     async def dispatch(self, request: Request, call_next):
         if not AUTH_TOKEN:
