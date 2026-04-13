@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from .config import AUTH_TOKEN, STATIC_DIR
+from .config import AUTH_TOKEN, STATIC_DIR, get_version
 from .database import init_db
 from .routers import annotations, catalog, collections, downloads, imports, ollama, scripts, search, settings, translate
 from .services.library import rebuild_library
@@ -85,6 +85,12 @@ def on_startup() -> None:
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/api/version")
+def get_app_version() -> dict:
+    """Return application version info."""
+    return {"version": get_version()}
 
 
 @app.get("/login")

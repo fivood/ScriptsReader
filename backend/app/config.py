@@ -6,6 +6,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 WORKSPACE_ROOT = PROJECT_ROOT.parent
 DATA_DIR = PROJECT_ROOT / "data"
+VERSION_FILE = DATA_DIR / "version.txt"
 IMPORTS_DIR = DATA_DIR / "imports"
 LIBRARY_DIR = DATA_DIR / "library"
 DOWNLOAD_LOG_DIR = DATA_DIR / "downloads"
@@ -44,3 +45,15 @@ OLLAMA_TIMEOUT_SECONDS = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "120").strip(
 
 # Auth token for public access – leave empty to disable authentication
 AUTH_TOKEN = os.getenv("SR_AUTH_TOKEN", "").strip()
+
+
+def get_version() -> str:
+    """Get version from version.txt or environment, fallback to default."""
+    if VERSION_FILE.exists():
+        try:
+            content = VERSION_FILE.read_text(encoding="utf-8").strip()
+            if content:
+                return content
+        except Exception:
+            pass
+    return os.getenv("APP_VERSION", "0.1.0").strip()

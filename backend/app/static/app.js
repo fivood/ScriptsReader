@@ -26,6 +26,7 @@ const elements = {
   libraryTree: document.getElementById('library-tree'),
   librarySearch: document.getElementById('library-search'),
   libraryCount: document.getElementById('library-count'),
+  appVersion: document.getElementById('app-version'),
   rebuildLibrary: document.getElementById('rebuild-library'),
   manualImport: document.getElementById('manual-import'),
   downloadStatus: document.getElementById('download-status'),
@@ -115,6 +116,24 @@ function speakerColor(name) {
   return palette[hash % palette.length];
 }
 
+async function loadAppVersion() {
+  try {
+    const result = await request('/api/version');
+    if (elements.appVersion && result.version) {
+      elements.appVersion.textContent = `v${result.version}`;
+    }
+  } catch (_) {
+    if (elements.appVersion) {
+      elements.appVersion.textContent = 'v?.?.?';
+    }
+  }
+}
+
+function showExists(name) {
+  const lowerName = name.toLowerCase().trim();
+  return state.library.some(show => show.name.toLowerCase() === lowerName);
+}
+
 function renderLibrary() {
   const keyword = elements.librarySearch.value.trim().toLowerCase();
   const filteredShows = state.library
@@ -141,10 +160,10 @@ function renderLibrary() {
   }
 
   elements.libraryTree.innerHTML = filteredShows.map(show => `
-    <details class="tree-show" open>
+    <details class="tree-show">
       <summary>${show.name}</summary>
       ${show.seasons.map(season => `
-        <details class="tree-season" open>
+        <details class="tree-season">
           <summary>Season ${String(season.season_number).padStart(2, '0')}</summary>
           <div class="tree-episodes">
             ${season.episodes.map(episode => `
@@ -760,6 +779,14 @@ function renderCatalogResults() {
       btn.disabled = true;
       btn.textContent = '…';
       try {
+          // Check if already exists
+          const canDownload = await startDownloadWithCheck(group.name, source.params);
+          if (!canDownload) {
+            btn.disabled = false;
+            btn.textContent = `${source.site_label} ↓`;
+            return;
+          }
+
         await request('/api/downloads/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -809,6 +836,18 @@ async function advancedDownload(params) {
 }
 
 // ── Ollama / AI helpers ─────────────────────────────────────────────────
+
+async function startDownloadWithCheck(showName, params) {
+  // Check if show already exists in library before downloading
+  if (showName && showExists(showName)) {
+    const shouldContinue = confirm(`"${escapeHtml(showName)}" 已在剧本库中。是否继续下载？`);
+    if (!shouldContinue) {
+      elements.downloadStatus.innerHTML = `<div class="status-item">已取消：${escapeHtml(showName)}</div>`;
+      return false;
+    }
+  }
+  return true;
+}
 
 async function loadOllamaStatus() {
   let localError = '';
@@ -1244,16 +1283,29 @@ function wireEvents() {
       searchCatalog();
     }
   });
-  elements.fdDownload.addEventListener('click', () => advancedDownload({
-    target: 'foreverdreaming',
-    index_url: (elements.fdIndexUrl.value || '').trim(),
-    show_name: (elements.fdShowName.value || '').trim(),
-  }));
-  elements.advSpringfieldDownload.addEventListener('click', () => advancedDownload({
-    target: 'springfield',
-    show_slug: (elements.advSpringfieldSlug.value || '').trim(),
-    all_seasons: true,
-  }));
+  elements.fdDownload.addEventListener('click', async () => {
+    const showName = (elements.fdShowName.value || '').trim();
+    if (showName && showExists(showName)) {
+      const shouldContinue = confirm(`"${escapeHtml(showName)}" 已存在于剧本库。要继续下载吗？`);
+      if (!shouldContinue) {
+        elements.downloadStatus.innerHTML = `<div class="status-item">已取消：${escapeHtml(showName)}</div>`;
+        return;
+      }
+    }
+    await advancedDownload({
+      target: 'foreverdreaming',
+      index_url: (elements.fdIndexUrl.value || '').trim(),
+      show_name: showName,
+    });
+  });
+  elements.advSpringfieldDownload.addEventListener('click', async () => {
+    const slug = (elements.advSpringfieldSlug.value || '').trim();
+    await advancedDownload({
+      target: 'springfield',
+      show_slug: slug,
+      all_seasons: true,
+    });
+  });
   elements.translateAllBtn.addEventListener('click', translateAll);
   elements.collectionCreate.addEventListener('click', createCollection);
   elements.collectionDelete.addEventListener('click', deleteSelectedCollection);
@@ -1324,6 +1376,7 @@ function wireEvents() {
 
 async function bootstrap() {
   wireEvents();
+  loadAppVersion();
   await loadCatalogStatus();
   await loadLibrary();
   await loadCollections();
