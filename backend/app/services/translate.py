@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import random
 import time
+import uuid
 
 import httpx
 
@@ -56,14 +57,16 @@ async def translate_baidu(text: str, app_id: str, secret_key: str, target_lang: 
 
 
 async def translate_youdao(text: str, app_key: str, secret_key: str, target_lang: str) -> str:
-    """有道智云翻译 API (https://ai.youdao.com)"""
+    """有道智云批量翻译 API (https://openapi.youdao.com/v2/api)"""
     # 有道使用 zh-CHS 表示简体中文
     to_lang = "zh-CHS" if target_lang.upper().startswith("ZH") else target_lang
 
     curtime = str(int(time.time()))
-    salt = str(random.randint(10000, 99999))
+    # 文档建议 salt 使用 UUID，防止重放攻击
+    salt = str(uuid.uuid4())
 
-    # 有道签名规则：input = q[0:10] + len(q) + q[-10:] if len > 20 else q
+    # 批量接口签名：input = 所有q拼接后的截断字符串
+    # input = q前10字符 + q总长度 + q后10字符（长度>20时），否则直接用q
     if len(text) > 20:
         input_str = text[:10] + str(len(text)) + text[-10:]
     else:
@@ -74,7 +77,7 @@ async def translate_youdao(text: str, app_key: str, secret_key: str, target_lang
 
     async with httpx.AsyncClient(timeout=20) as client:
         resp = await client.post(
-            "https://openapi.youdao.com/api",
+            "https://openapi.youdao.com/v2/api",
             data={
                 "q": text,
                 "from": "auto",
@@ -93,5 +96,6 @@ async def translate_youdao(text: str, app_key: str, secret_key: str, target_lang
     if error_code != "0":
         raise RuntimeError(f"有道翻译错误 {error_code}")
 
-    results = data.get("translation") or []
-    return "\n".join(results)
+    # v2/api 返回 translateResults（对象数组），每项包含 translation 字段
+    results = data.get("translateResults") or []
+    return "\n".join(item.get("translation", "") for item in results)
