@@ -9,6 +9,8 @@ const state = {
   catalogResults: [],
   ollamaOnline: false,
   ollamaModel: '',
+  ollamaSource: 'none',
+  ollamaEndpoint: '',
   lineTranslations: {},
   translateAllActive: false,
   readingProgress: {},
@@ -17,6 +19,8 @@ const state = {
   selectedCollectionId: null,
   collectionFilter: '',
 };
+
+const LOCAL_OLLAMA_BASE = 'http://127.0.0.1:11434';
 
 const elements = {
   libraryTree: document.getElementById('library-tree'),
@@ -91,6 +95,15 @@ async function request(url, options = {}) {
   if (!response.ok) {
     const text = await response.text();
     throw new Error(text || `Request failed: ${response.status}`);
+  }
+  return response.json();
+}
+
+async function requestLocalOllama(path, options = {}) {
+  const response = await fetch(`${LOCAL_OLLAMA_BASE}${path}`, options);
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Local Ollama request failed: ${response.status}`);
   }
   return response.json();
 }
@@ -798,18 +811,44 @@ async function advancedDownload(params) {
 // ── Ollama / AI helpers ─────────────────────────────────────────────────
 
 async function loadOllamaStatus() {
+  let localError = '';
+  try {
+    const localTags = await requestLocalOllama('/api/tags');
+    const localModels = Array.isArray(localTags.models) ? localTags.models : [];
+    state.ollamaOnline = true;
+    state.ollamaSource = 'local';
+    state.ollamaEndpoint = LOCAL_OLLAMA_BASE;
+    elements.ollamaStatus.textContent = localModels.length
+      ? `✓ 本机在线 · ${localModels.length} 模型`
+      : '⚠ 本机在线但无模型';
+    elements.ollamaStatus.className = 'muted ai-online';
+    elements.ollamaStatus.title = `endpoint: ${LOCAL_OLLAMA_BASE}`;
+    if (elements.sOllamaStatus) elements.sOllamaStatus.textContent = '当前来源：本机 Ollama';
+    await loadOllamaModels();
+    return;
+  } catch (error) {
+    localError = String(error.message || error);
+  }
+
   try {
     const h = await request('/api/ollama/health');
-    state.ollamaOnline = h.online;
+    state.ollamaOnline = !!h.online;
+    state.ollamaSource = h.online ? 'server' : 'none';
+    state.ollamaEndpoint = h.online ? (h.base_url || '/api/ollama') : '';
     if (h.online && h.models > 0) {
-      elements.ollamaStatus.textContent = `✓ 在线 · ${h.models} 模型`;
+      elements.ollamaStatus.textContent = `✓ 服务器在线 · ${h.models} 模型`;
     } else if (h.online) {
-      elements.ollamaStatus.textContent = '⚠ 在线但无模型';
+      elements.ollamaStatus.textContent = '⚠ 服务器在线但无模型';
     } else {
       elements.ollamaStatus.textContent = '✗ 离线';
     }
     elements.ollamaStatus.className = h.online ? 'muted ai-online' : 'muted ai-offline';
-    elements.ollamaStatus.title = h.error || `endpoint: ${h.base_url || 'unknown'}`;
+    elements.ollamaStatus.title = h.error || `本机失败: ${localError}`;
+    if (elements.sOllamaStatus) {
+      elements.sOllamaStatus.textContent = h.online
+        ? '当前来源：服务器回退地址'
+        : '本机与服务器均不可用';
+    }
     if (h.online) {
       await loadOllamaModels();
     } else {
@@ -817,12 +856,17 @@ async function loadOllamaStatus() {
       if (elements.sOllamaModel) elements.sOllamaModel.innerHTML = '<option value="">Ollama 未连接</option>';
       if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = 'Ollama 未连接';
       state.ollamaModel = '';
+      state.ollamaSource = 'none';
+      state.ollamaEndpoint = '';
     }
   } catch {
     state.ollamaOnline = false;
+    state.ollamaSource = 'none';
+    state.ollamaEndpoint = '';
     elements.ollamaStatus.textContent = '✗ 不可用';
     elements.ollamaStatus.className = 'muted ai-offline';
-    elements.ollamaStatus.title = '无法连接到 /api/ollama/health';
+    elements.ollamaStatus.title = `本机失败: ${localError}；服务器代理也不可用`;
+    if (elements.sOllamaStatus) elements.sOllamaStatus.textContent = '本机与服务器均不可用';
     elements.ollamaModel.innerHTML = '<option value="">Ollama 未连接</option>';
     if (elements.sOllamaModel) elements.sOllamaModel.innerHTML = '<option value="">Ollama 未连接</option>';
     if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = 'Ollama 未连接';
@@ -832,7 +876,14 @@ async function loadOllamaStatus() {
 
 async function loadOllamaModels() {
   try {
-    const models = await request('/api/ollama/models');
+    let models = [];
+    if (state.ollamaSource === 'local') {
+      const localData = await requestLocalOllama('/api/tags');
+      const localModels = Array.isArray(localData.models) ? localData.models : [];
+      models = localModels.map(item => ({ name: item.name }));
+    } else {
+      models = await request('/api/ollama/models');
+    }
     const opts = models.length
       ? models.map(m => `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join('')
       : '<option value="">无可用模型（请先 ollama pull）</option>';
@@ -857,6 +908,79 @@ async function loadOllamaModels() {
 
 function getSelectedModel() {
   return elements.sOllamaModel?.value || elements.ollamaModel.value || state.ollamaModel;
+}
+
+function buildOllamaPrompt(task, targetLang = '中文') {
+  const prompts = {
+    translate: `You are a professional translator. Translate the dialogue line to ${targetLang}. Output ONLY the translation, no explanation.`,
+    analyze: 'You are a professional screenwriting teacher. Analyze this dialogue line in depth: what is the subtext, the dramatic tension, the character motivation, and why this line works dramatically. Answer in Chinese (简体中文), concise but insightful (3-5 bullet points).',
+    sentiment: 'You are an emotion analysis expert for screenplays. For the given dialogue line, output a single JSON object with two keys: "label" and "confidence" (0.0-1.0). Output ONLY JSON.',
+    explain: 'You are a cultural and language expert. Explain slang, idioms, cultural references, or unusual expressions in this dialogue. If none, say briefly. Answer in Chinese (简体中文).',
+    rewrite: 'You are a skilled screenwriter. Rewrite the dialogue in three tones: formal, casual, and emotionally intense. Use Chinese labels: 正式版 / 口语版 / 激烈版.',
+    profile: 'You are a screenwriting analyst. Build a brief voice profile for the character from lines provided. Answer in Chinese bullet points.',
+    summary: 'You are a professional script reader. Summarize the episode plot from provided dialogue in 3-5 Chinese sentences.',
+  };
+  return prompts[task] || prompts.analyze;
+}
+
+async function localOllamaChat(model, task, content) {
+  const systemPrompt = buildOllamaPrompt(task, '中文');
+  try {
+    const resp = await requestLocalOllama('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content },
+        ],
+        stream: false,
+      }),
+    });
+    const text = String(resp?.message?.content || '').trim();
+    if (text) return { ok: true, reply: text };
+  } catch (error) {
+    // Fall through to generate API for compatibility.
+    if (!String(error.message || '').includes('404') && !String(error.message || '').includes('400')) {
+      throw error;
+    }
+  }
+
+  const prompt = `[System]\n${systemPrompt}\n\n[User]\n${content}`;
+  const fallback = await requestLocalOllama('/api/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, prompt, stream: false }),
+  });
+  const text = String(fallback?.response || '').trim();
+  if (!text) throw new Error('本机 Ollama 返回空响应');
+  return { ok: true, reply: text };
+}
+
+async function ollamaChat(model, task, content) {
+  let localErr = '';
+  try {
+    const result = await localOllamaChat(model, task, content);
+    state.ollamaSource = 'local';
+    state.ollamaEndpoint = LOCAL_OLLAMA_BASE;
+    return result;
+  } catch (error) {
+    localErr = String(error.message || error);
+  }
+
+  const serverResult = await request('/api/ollama/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model, task, content }),
+  });
+  if (!serverResult.ok && localErr) {
+    return { ok: false, error: `本机失败: ${localErr}; 服务器返回: ${serverResult.error || '未知错误'}` };
+  }
+  if (serverResult.ok) {
+    state.ollamaSource = 'server';
+  }
+  return serverResult;
 }
 
 // ── Settings helpers ──────────────────────────────────────────────────────
@@ -952,11 +1076,7 @@ async function aiLineTask(task, lineIndex) {
   showAiResult(`正在${taskLabels[task] || task}…`);
 
   try {
-    const result = await request('/api/ollama/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, task, content: context }),
-    });
+    const result = await ollamaChat(model, task, context);
     if (result.ok) {
       showAiResult(
         `<div class="ai-result-header">${escapeHtml(taskLabels[task] || task)}</div>` +
@@ -997,11 +1117,7 @@ async function aiEpisodeTask(task) {
   }
 
   try {
-    const result = await request('/api/ollama/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, task, content }),
-    });
+    const result = await ollamaChat(model, task, content);
     if (result.ok) {
       showAiResult(
         `<div class="ai-result-header">${escapeHtml(taskLabels[task] || task)}</div>` +

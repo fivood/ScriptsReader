@@ -194,8 +194,15 @@
 
         <section class="settings-section">
           <h3>🤖 本地 AI（Ollama）</h3>
-          <label class="settings-label" for="s-ollama-url">服务地址</label>
-          <input id="s-ollama-url" type="text" placeholder="http://localhost:11434">
+          <label class="settings-label" for="s-ollama-url">服务器回退地址（本机不可用时）</label>
+          <input id="s-ollama-url" type="text" placeholder="http://127.0.0.1:11434">
+          <div class="settings-guide">
+            <strong>每位用户使用自己本地模型（已默认优先本机）</strong>
+            <p>1) 安装 Ollama 后运行：<code>ollama serve</code></p>
+            <p>2) 拉取至少一个模型：<code>ollama pull qwen2.5:7b</code></p>
+            <p>3) 打开本页面，系统会优先调用 <code>http://127.0.0.1:11434</code></p>
+            <p>4) 若本机不可用，才回退到上面的服务器地址</p>
+          </div>
           <label class="settings-label" style="margin-top:10px">选择模型</label>
           <div class="settings-row">
             <select id="s-ollama-model" class="model-select" style="flex:1">
