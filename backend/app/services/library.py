@@ -1,11 +1,23 @@
 from __future__ import annotations
 
+import os
 import shutil
 from pathlib import Path
 
-from ..config import DEFAULT_LIBRARY_SOURCES, IMPORTS_DIR, LIBRARY_DIR, SUPPORTED_IMPORT_EXTENSIONS
+from ..config import DEFAULT_LIBRARY_SOURCES, IMPORTS_DIR, LIBRARY_DIR, SUPPORTED_IMPORT_EXTENSIONS, WORKSPACE_ROOT
 from ..database import get_connection, init_db
 from .parser import ParsedEpisode, parse_file
+
+
+_SCAN_EXCLUDE_DIRS = {
+    "__pycache__",
+    ".git",
+    ".venv",
+    "venv",
+    "node_modules",
+    ".mypy_cache",
+    ".pytest_cache",
+}
 
 
 def _clear_library(conn) -> None:
@@ -68,13 +80,43 @@ def _store_episode(conn, episode: ParsedEpisode, source: str) -> int:
 
 
 def _iter_source_files() -> list[Path]:
+    # Auto-discover top-level script output folders so new download targets
+    # appear in library rebuilds without changing config.
+    discovered_dirs: list[Path] = []
+    try:
+        for child in WORKSPACE_ROOT.iterdir():
+            if not child.is_dir():
+                continue
+            name = child.name.lower()
+            if name.endswith("_scripts_md") or name.endswith("_scripts") or name.endswith("_movies_md"):
+                discovered_dirs.append(child)
+    except FileNotFoundError:
+        pass
+
+    source_dirs: list[Path] = []
+    seen: set[Path] = set()
+    for src in [*DEFAULT_LIBRARY_SOURCES, *discovered_dirs]:
+        resolved = src.resolve()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        source_dirs.append(src)
+
     files: list[Path] = []
-    for source_dir in DEFAULT_LIBRARY_SOURCES:
+    for source_dir in source_dirs:
         if not source_dir.exists():
             continue
-        for path in source_dir.rglob("*"):
-            if path.is_file() and path.suffix.lower() in SUPPORTED_IMPORT_EXTENSIONS:
-                files.append(path)
+        for root, dir_names, file_names in os.walk(source_dir):
+            dir_names[:] = [
+                name
+                for name in dir_names
+                if name not in _SCAN_EXCLUDE_DIRS and not name.startswith(".")
+            ]
+            root_path = Path(root)
+            for file_name in file_names:
+                path = root_path / file_name
+                if path.suffix.lower() in SUPPORTED_IMPORT_EXTENSIONS:
+                    files.append(path)
     return sorted(files)
 
 

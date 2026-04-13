@@ -17,6 +17,11 @@ SUPPORTED_IMPORT_EXTENSIONS = {".md", ".txt", ".json", ".srt", ".ass", ".fountai
 DEFAULT_LIBRARY_SOURCES = [
     WORKSPACE_ROOT / "poi_scripts_md",
     WORKSPACE_ROOT / "all_scripts_md",
+    WORKSPACE_ROOT / "springfield_scripts_md",
+    WORKSPACE_ROOT / "foreverdreaming_scripts_md",
+    WORKSPACE_ROOT / "imsdb_movies_md",
+    WORKSPACE_ROOT / "poi_scripts",
+    WORKSPACE_ROOT / "all_scripts",
     IMPORTS_DIR,
 ]
 
