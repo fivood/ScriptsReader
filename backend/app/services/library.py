@@ -88,8 +88,13 @@ def _iter_source_files() -> list[Path]:
             if not child.is_dir():
                 continue
             name = child.name.lower()
-            if name.endswith("_scripts_md") or name.endswith("_scripts") or name.endswith("_movies_md"):
+            if name.endswith("_scripts_md") or name.endswith("_movies_md"):
                 discovered_dirs.append(child)
+            # 扫描统一剧本库子目录（scripts_library 或同类命名的父目录）
+            if name in ("scripts_library",):
+                for sub in child.iterdir():
+                    if sub.is_dir():
+                        discovered_dirs.append(sub)
     except FileNotFoundError:
         pass
 

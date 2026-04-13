@@ -16,13 +16,13 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 SUPPORTED_IMPORT_EXTENSIONS = {".md", ".txt", ".json", ".srt", ".ass", ".fountain"}
 DEFAULT_LIBRARY_SOURCES = [
-    WORKSPACE_ROOT / "poi_scripts_md",
-    WORKSPACE_ROOT / "all_scripts_md",
-    WORKSPACE_ROOT / "springfield_scripts_md",
+    # 统一剧本库目录（scripts_library 下各子目录）
+    WORKSPACE_ROOT / "scripts_library" / "poi_scripts_md",
+    WORKSPACE_ROOT / "scripts_library" / "springfield_scripts_md",
+    WORKSPACE_ROOT / "scripts_library" / "imsdb_movies_md",
+    # 旧式顶层目录（兼容旧版本或手动新增）
     WORKSPACE_ROOT / "foreverdreaming_scripts_md",
-    WORKSPACE_ROOT / "imsdb_movies_md",
-    WORKSPACE_ROOT / "poi_scripts",
-    WORKSPACE_ROOT / "all_scripts",
+    WORKSPACE_ROOT / "all_scripts_md",
     IMPORTS_DIR,
 ]
 

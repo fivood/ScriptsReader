@@ -109,6 +109,144 @@ async function requestLocalOllama(path, options = {}) {
   return response.json();
 }
 
+// ── HUD Modal System（替换系统 prompt / confirm）──────────────────────────
+
+let _hudModalResolve = null;
+
+function _hudModalClose() {
+  if (_hudModalResolve) { _hudModalResolve(null); _hudModalResolve = null; }
+  document.getElementById('hud-modal-overlay').hidden = true;
+  document.getElementById('hud-modal-body').innerHTML = '';
+  document.getElementById('hud-modal-confirm').onclick = null;
+  document.getElementById('hud-modal-confirm').style.display = '';
+}
+
+function _hudModalOpen({ title, bodyHtml, confirmText = '确认', showConfirm = true, showCancel = true, cancelText = '取消' }) {
+  document.getElementById('hud-modal-title').textContent = title;
+  document.getElementById('hud-modal-body').innerHTML = bodyHtml;
+  const confirmBtn = document.getElementById('hud-modal-confirm');
+  const cancelBtn = document.getElementById('hud-modal-cancel');
+  confirmBtn.textContent = confirmText;
+  confirmBtn.style.display = showConfirm ? '' : 'none';
+  cancelBtn.textContent = cancelText;
+  cancelBtn.style.display = showCancel ? '' : 'none';
+  document.getElementById('hud-modal-overlay').hidden = false;
+  const firstInput = document.getElementById('hud-modal-body').querySelector('input, textarea, select');
+  if (firstInput) setTimeout(() => firstInput.focus(), 30);
+}
+
+/**
+ * 单行/多行文本输入弹窗，返回 string 或 null（取消）。
+ */
+function hudPrompt({ title, label, defaultValue = '', placeholder = '', textarea = false }) {
+  return new Promise(resolve => {
+    _hudModalResolve = () => resolve(null);
+    const tag = textarea ? 'textarea' : 'input';
+    const extra = textarea ? ' class="hud-modal-textarea" rows="3"' : ` type="text" value="${escapeAttr(defaultValue)}"`;
+    const inner = textarea ? escapeHtml(defaultValue) : '';
+    const ph = placeholder ? ` placeholder="${escapeAttr(placeholder)}"` : '';
+    _hudModalOpen({
+      title,
+      bodyHtml: `<label class="settings-label">${escapeHtml(label)}</label><${tag} id="hud-inp"${extra}${ph}>${inner}</${tag}>`,
+    });
+    document.getElementById('hud-modal-confirm').onclick = () => {
+      const val = document.getElementById('hud-inp')?.value ?? '';
+      _hudModalResolve = null;
+      _hudModalClose();
+      resolve(val);
+    };
+    if (!textarea) {
+      setTimeout(() => {
+        const inp = document.getElementById('hud-inp');
+        if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('hud-modal-confirm').click(); });
+      }, 40);
+    }
+  });
+}
+
+/**
+ * 确认/取消弹窗，返回 true/false。
+ */
+function hudConfirm({ title, message, confirmText = '确认' }) {
+  return new Promise(resolve => {
+    _hudModalResolve = () => resolve(false);
+    _hudModalOpen({
+      title,
+      bodyHtml: `<p class="hud-modal-message">${escapeHtml(message)}</p>`,
+      confirmText,
+    });
+    document.getElementById('hud-modal-confirm').onclick = () => {
+      _hudModalResolve = null;
+      _hudModalClose();
+      resolve(true);
+    };
+  });
+}
+
+/**
+ * 收藏台词专用表单（标签 + 备注），返回 { tags, note } 或 null。
+ */
+function hudCollectForm() {
+  return new Promise(resolve => {
+    _hudModalResolve = () => resolve(null);
+    _hudModalOpen({
+      title: '收藏台词',
+      bodyHtml: `
+        <label class="settings-label">标签（逗号分隔，可留空）</label>
+        <input id="hud-tags" type="text" placeholder="励志, 幽默, Reese…">
+        <label class="settings-label" style="margin-top:8px">备注（可留空）</label>
+        <textarea id="hud-note" class="hud-modal-textarea" rows="2" placeholder="分析或摘录原因…"></textarea>
+      `,
+    });
+    document.getElementById('hud-modal-confirm').onclick = () => {
+      const tags = document.getElementById('hud-tags')?.value ?? '';
+      const note = document.getElementById('hud-note')?.value ?? '';
+      _hudModalResolve = null;
+      _hudModalClose();
+      resolve({ tags, note });
+    };
+  });
+}
+
+/**
+ * 高亮颜色选择弹窗，返回颜色字符串（空串=清除）或 null（取消）。
+ */
+function hudColorPicker({ currentColor = '' } = {}) {
+  return new Promise(resolve => {
+    _hudModalResolve = () => resolve(null);
+    const colors = [
+      { value: 'yellow', label: 'Yellow', bg: '#b8900a' },
+      { value: 'red',    label: 'Red',    bg: '#a03030' },
+      { value: 'green',  label: 'Green',  bg: '#1a6e50' },
+      { value: 'blue',   label: 'Blue',   bg: '#1870a0' },
+      { value: 'purple', label: 'Purple', bg: '#6030b0' },
+    ];
+    const btns = colors.map(c =>
+      `<button class="hud-color-btn${currentColor === c.value ? ' active' : ''}" data-color="${c.value}" style="background:${c.bg};">${c.label}</button>`
+    ).join('');
+    _hudModalOpen({
+      title: '高亮颜色',
+      bodyHtml: `<div class="hud-color-grid">${btns}</div><button class="hud-color-clear-btn" data-color="">✕  清除高亮</button>`,
+      showConfirm: false,
+      showCancel: true,
+    });
+    setTimeout(() => {
+      document.getElementById('hud-modal-body').querySelectorAll('[data-color]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          _hudModalResolve = null;
+          document.getElementById('hud-modal-overlay').hidden = true;
+          document.getElementById('hud-modal-body').innerHTML = '';
+          resolve(btn.dataset.color);
+        });
+      });
+    }, 0);
+  });
+}
+
+function escapeAttr(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+}
+
 function speakerColor(name) {
   const palette = ['speaker-a', 'speaker-b', 'speaker-c', 'speaker-d', 'speaker-e', 'speaker-f'];
   let hash = 0;
@@ -297,13 +435,13 @@ function renderDialogue() {
           <p>${escapeHtml(line.text)}</p>
           ${inlineTranslation ? `<div class="inline-translation">${escapeHtml(inlineTranslation)}</div>` : ''}
           <div class="line-actions">
-            <button class="tiny-btn ai-btn" data-analyze-line="${line.line_index}" data-tip="台词分析" aria-label="台词分析">析</button>
-            <button class="tiny-btn ai-btn" data-explain-line="${line.line_index}" data-tip="文化注释" aria-label="文化注释">注释</button>
-            <button class="tiny-btn ai-btn" data-rewrite-line="${line.line_index}" data-tip="改写台词" aria-label="改写台词">改</button>
-            <button class="tiny-btn ai-btn" data-sentiment-line="${line.line_index}" data-tip="情感标注" aria-label="情感标注">情</button>
-            <button class="tiny-btn" data-collect-line="${line.line_index}" data-tip="收藏台词" aria-label="收藏台词">藏</button>
-            <button class="tiny-btn" data-highlight-line="${line.line_index}" data-tip="高亮标记" aria-label="高亮标记">标</button>
-            <button class="tiny-btn" data-note-line="${line.line_index}" data-tip="添加笔记" aria-label="添加笔记">注</button>
+            <button class="tiny-btn ai-btn" data-analyze-line="${line.line_index}" data-tip="台词分析" aria-label="台词分析">⟡</button>
+            <button class="tiny-btn ai-btn" data-explain-line="${line.line_index}" data-tip="文化注释" aria-label="文化注释">⊙</button>
+            <button class="tiny-btn ai-btn" data-rewrite-line="${line.line_index}" data-tip="改写台词" aria-label="改写台词">↻</button>
+            <button class="tiny-btn ai-btn" data-sentiment-line="${line.line_index}" data-tip="情感标注" aria-label="情感标注">♡</button>
+            <button class="tiny-btn" data-collect-line="${line.line_index}" data-tip="收藏台词" aria-label="收藏台词">★</button>
+            <button class="tiny-btn" data-highlight-line="${line.line_index}" data-tip="高亮标记" aria-label="高亮标记">◈</button>
+            <button class="tiny-btn" data-note-line="${line.line_index}" data-tip="添加笔记" aria-label="添加笔记">✎</button>
           </div>
         </div>
         ${noteText ? `<p class="note-preview">NOTE: ${escapeHtml(noteText)}</p>` : ''}
@@ -486,7 +624,7 @@ async function createCollection() {
 
 async function deleteSelectedCollection() {
   if (!state.selectedCollectionId) return;
-  if (!confirm('确认删除当前收藏夹及其条目？')) return;
+  if (!await hudConfirm({ title: '删除确认', message: '确认删除当前收藏夹及其全部条目？此操作无法撤销。', confirmText: '删除' })) return;
   await request(`/api/collections/${state.selectedCollectionId}`, { method: 'DELETE' });
   await loadCollections();
 }
@@ -506,10 +644,10 @@ async function collectLine(lineIndex) {
   }
   const line = state.currentEpisode.lines.find(item => item.line_index === lineIndex && !item.is_direction);
   if (!line) return;
-  const tagsRaw = prompt('收藏标签（逗号分隔，可留空）', '');
-  if (tagsRaw === null) return;
-  const noteRaw = prompt('收藏备注（可留空）', '') || '';
-  const tags = tagsRaw.split(',').map(item => item.trim()).filter(Boolean);
+  const result = await hudCollectForm();
+  if (result === null) return;
+  const tags = result.tags.split(',').map(item => item.trim()).filter(Boolean);
+  const noteRaw = result.note || '';
   await request('/api/collections/items', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -566,14 +704,13 @@ async function editHighlight(lineIndex) {
   if (!state.currentEpisode) return;
   const key = String(lineIndex);
   const current = state.annotations.highlights[key] || '';
-  const choice = prompt('高亮颜色：yellow/red/green/blue/purple，留空清除', current);
-  if (choice === null) return;
-  const color = choice.trim().toLowerCase();
+  const choice = await hudColorPicker({ currentColor: current });
+  if (choice === null) return; // 取消
   const valid = ['yellow', 'red', 'green', 'blue', 'purple'];
   const payload = {
     episode_id: state.currentEpisode.id,
     line_index: lineIndex,
-    color: valid.includes(color) ? color : null,
+    color: valid.includes(choice) ? choice : null,
   };
   state.annotations = await request('/api/annotations/highlight', {
     method: 'PUT',
@@ -587,7 +724,7 @@ async function editNote(lineIndex) {
   if (!state.currentEpisode) return;
   const key = String(lineIndex);
   const current = state.annotations.notes[key] || '';
-  const content = prompt('输入笔记内容（留空删除）', current);
+  const content = await hudPrompt({ title: '添加笔记', label: '笔记内容（留空则删除）', defaultValue: current, textarea: true });
   if (content === null) return;
   state.annotations = await request('/api/annotations/note', {
     method: 'PUT',
@@ -1245,6 +1382,19 @@ async function translateAll() {
 }
 
 function wireEvents() {
+  // ── HUD Modal 全局关闭事件 ──
+  const hudOverlay = document.getElementById('hud-modal-overlay');
+  const hudClose = document.getElementById('hud-modal-close');
+  const hudCancel = document.getElementById('hud-modal-cancel');
+  if (hudOverlay) {
+    hudClose?.addEventListener('click', _hudModalClose);
+    hudCancel?.addEventListener('click', _hudModalClose);
+    hudOverlay.addEventListener('click', e => { if (e.target === hudOverlay) _hudModalClose(); });
+  }
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && hudOverlay && !hudOverlay.hidden) _hudModalClose();
+  });
+
   // Mobile sidebar toggle
   const menuBtn = document.getElementById('mobile-menu-btn');
   const sidebarEl = document.getElementById('sidebar');

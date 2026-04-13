@@ -198,11 +198,15 @@
           <label class="settings-label" for="s-ollama-url">服务器回退地址（本机不可用时）</label>
           <input id="s-ollama-url" type="text" placeholder="http://127.0.0.1:11434">
           <div class="settings-guide">
-            <strong>每位用户使用自己本地模型（已默认优先本机）</strong>
-            <p>1) 安装 Ollama 后运行：<code>ollama serve</code></p>
-            <p>2) 拉取至少一个模型：<code>ollama pull qwen2.5:7b</code></p>
-            <p>3) 打开本页面，系统会优先调用 <code>http://127.0.0.1:11434</code></p>
-            <p>4) 若本机不可用，才回退到上面的服务器地址</p>
+            <strong>本机 Ollama 安装配置（推荐）</strong>
+            <p><span class="guide-step">① 下载安装</span> 前往 <code>ollama.com</code> 下载对应系统的安装包（Windows / macOS / Linux），按向导安装完成后 Ollama 会作为后台服务自动运行。</p>
+            <p><span class="guide-step">② 启动服务</span> 安装后一般自动运行；如未启动，在终端执行 <code>ollama serve</code>（监听 <code>127.0.0.1:11434</code>）。</p>
+            <p><span class="guide-step">③ 拉取模型</span> 在终端执行以下任意一条命令（首次需要下载模型文件）：</p>
+            <p style="padding-left:12px"><code>ollama pull qwen2.5:7b</code>　　中文优先，约 4.7 GB，推荐日常使用</p>
+            <p style="padding-left:12px"><code>ollama pull qwen2.5:14b</code>　理解更强，需 8 GB+ 显存/内存</p>
+            <p style="padding-left:12px"><code>ollama pull llama3.2:3b</code>　　英文轻量，约 2.0 GB，低配可用</p>
+            <p><span class="guide-step">④ 验证连接</span> 模型下载完成后，刷新本页面或点击"⟳"按钮——AI 助手状态栏变为绿色即表示连接成功。</p>
+            <p>如在局域网服务器部署 Ollama，请在下方输入服务器地址；本机不可用时自动回退到该地址。</p>
           </div>
           <label class="settings-label" style="margin-top:10px">选择模型</label>
           <div class="settings-row">
@@ -257,6 +261,21 @@
       <div class="settings-footer">
         <span id="s-save-msg" class="settings-hint"></span>
         <button id="s-save" class="secondary-btn">保存设置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ HUD 输入弹窗（替换系统 prompt / confirm）═══════════════ -->
+  <div id="hud-modal-overlay" class="hud-modal-overlay" hidden>
+    <div class="hud-modal panel" role="dialog" aria-modal="true" aria-labelledby="hud-modal-title">
+      <div class="hud-modal-header">
+        <h3 id="hud-modal-title"></h3>
+        <button id="hud-modal-close" class="ghost-btn" title="关闭">✕</button>
+      </div>
+      <div id="hud-modal-body" class="hud-modal-body"></div>
+      <div class="hud-modal-footer">
+        <button id="hud-modal-cancel" class="ghost-btn">取消</button>
+        <button id="hud-modal-confirm" class="secondary-btn">确认</button>
       </div>
     </div>
   </div>
