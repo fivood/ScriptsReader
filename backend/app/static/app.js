@@ -265,7 +265,6 @@ function renderDialogue() {
           <p>${escapeHtml(line.text)}</p>
           ${inlineTranslation ? `<div class="inline-translation">${escapeHtml(inlineTranslation)}</div>` : ''}
           <div class="line-actions">
-            <button class="tiny-btn" data-translate-line="${line.line_index}" data-tip="逐行翻译" aria-label="逐行翻译">译</button>
             <button class="tiny-btn ai-btn" data-analyze-line="${line.line_index}" data-tip="台词分析" aria-label="台词分析">析</button>
             <button class="tiny-btn ai-btn" data-explain-line="${line.line_index}" data-tip="文化注释" aria-label="文化注释">注释</button>
             <button class="tiny-btn ai-btn" data-rewrite-line="${line.line_index}" data-tip="改写台词" aria-label="改写台词">改</button>
@@ -280,9 +279,6 @@ function renderDialogue() {
     `;
   }).join('');
 
-  document.querySelectorAll('[data-translate-line]').forEach(button => {
-    button.addEventListener('click', () => translateLine(Number(button.dataset.translateLine)));
-  });
   document.querySelectorAll('[data-highlight-line]').forEach(button => {
     button.addEventListener('click', () => editHighlight(Number(button.dataset.highlightLine)));
   });
@@ -513,7 +509,7 @@ async function selectEpisode(episodeId) {
   state.lineTranslations = {};
   state.translateAllActive = false;
   elements.translationPanel.className = 'translation-panel empty-state';
-  elements.translationPanel.textContent = '点击任意对白行上的"译"按钮查看结果。';
+  elements.translationPanel.textContent = '使用“全文翻译”后，翻译结果会显示在每条台词下方。';
   elements.translateAllBtn.textContent = '⚡ 全文翻译';
   elements.translateAllBtn.disabled = false;
   elements.translateAllBtn.classList.remove('running');
@@ -1091,36 +1087,6 @@ async function translateAll() {
   elements.translateAllBtn.textContent = stopped
     ? `⚡ 继续翻译 (${done}/${total})`
     : `✓ 已翻译 ${total} 行`;
-}
-
-async function translateLine(lineIndex) {
-  if (!state.currentEpisode) return;
-  const currentIndex = state.currentEpisode.lines.findIndex(line => line.line_index === lineIndex);
-  const line = state.currentEpisode.lines[currentIndex];
-  const contextBefore = state.currentEpisode.lines.slice(Math.max(currentIndex - 2, 0), currentIndex).map(item => item.text);
-  const contextAfter = state.currentEpisode.lines.slice(currentIndex + 1, currentIndex + 3).map(item => item.text);
-  elements.translationPanel.className = 'translation-panel';
-  elements.translationPanel.innerHTML = '<div class="status-item">翻译中...</div>';
-  try {
-    const result = await request('/api/translate/preview', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: line.text, context_before: contextBefore, context_after: contextAfter }),
-    });
-    elements.translationPanel.innerHTML = `
-      <div class="translation-block">
-        <div class="translation-label">原文</div>
-        <p>${escapeHtml(line.text)}</p>
-      </div>
-      <div class="translation-block accent-block">
-        <div class="translation-label">译文</div>
-        <p>${escapeHtml(result.translation || result.message || '暂无结果')}</p>
-      </div>
-      <div class="translation-footnote">${result.provider || '未配置翻译引擎'}</div>
-    `;
-  } catch (error) {
-    elements.translationPanel.innerHTML = `<div class="status-item warn">翻译失败：${escapeHtml(String(error.message || error))}</div>`;
-  }
 }
 
 function wireEvents() {
