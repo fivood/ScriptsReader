@@ -8,9 +8,9 @@
   --bg-elevated: #0d1114;
   --text: #dff0f3;
   --text-muted: #5b6b70;
-  --accent: #00f0ff;
-  --accent-dim: rgba(0, 240, 255, 0.10);
-  --accent-glow: rgba(0, 240, 255, 0.50);
+  --accent: #ae2b2b;
+  --accent-dim: rgba(255, 0, 21, 0.1);
+  --accent-glow: rgba(255 116 116, 0.50);
   --accent-warn: #ffaa00;
   --line: rgba(0, 240, 255, 0.14);
   --line-dim: rgba(0, 240, 255, 0.06);
@@ -1438,7 +1438,7 @@ summary {
   width: 100%;
   padding: 12px;
   background: var(--accent);
-  color: #000;
+  color: #fff;
   border: 0;
   font-family: var(--font-hud);
   font-weight: 700;
