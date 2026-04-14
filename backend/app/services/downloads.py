@@ -155,11 +155,13 @@ def _summarize_log(state: DownloadJobState) -> dict:
             "current_item": None,
             "last_log_line": None,
             "error_line": None,
+            "progress_percent": None,
         }
 
     current_item = None
     progress_text = None
     error_line = None
+    progress_percent = None
 
     for line in lines:
         lower = line.lower()
@@ -169,7 +171,7 @@ def _summarize_log(state: DownloadJobState) -> dict:
             current_item = line
 
         # Explicit progress lines emitted by batch downloader.
-        if "进度：" in line:
+        if "进度：" in line or line.upper().startswith("PROGRESS:"):
             progress_text = line
 
         if (
@@ -181,6 +183,23 @@ def _summarize_log(state: DownloadJobState) -> dict:
             or "[!]" in line
         ):
             error_line = line
+
+    def _extract_percent(text: str | None) -> int | None:
+        if not text:
+            return None
+        m = re.search(r"(\d+)\s*/\s*(\d+)", text)
+        if m:
+            current, total = int(m.group(1)), int(m.group(2))
+            if total > 0:
+                return min(100, int(current * 100 / total))
+        m = re.search(r"(\d+)%", text)
+        if m:
+            return min(100, int(m.group(1)))
+        return None
+
+    progress_percent = _extract_percent(progress_text)
+    if progress_percent is None:
+        progress_percent = _extract_percent(current_item)
 
     if not progress_text:
         progress_text = current_item
@@ -195,6 +214,7 @@ def _summarize_log(state: DownloadJobState) -> dict:
         "current_item": _clip(current_item),
         "last_log_line": _clip(lines[-1]),
         "error_line": _clip(error_line),
+        "progress_percent": progress_percent,
     }
 
 
@@ -213,6 +233,7 @@ def serialize_job(state: DownloadJobState) -> dict:
         "current_item": summary["current_item"],
         "last_log_line": summary["last_log_line"],
         "error_line": summary["error_line"],
+        "progress_percent": summary["progress_percent"],
     }
 
 

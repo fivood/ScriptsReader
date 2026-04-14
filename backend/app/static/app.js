@@ -809,6 +809,26 @@ async function uploadFiles(files) {
   `;
 }
 
+function renderJobProgress(job) {
+  if (job.progress_percent != null) {
+    return `
+      <div class="poi-progressbar">
+        <div class="poi-progressbar-value" style="width:${job.progress_percent}%"></div>
+        <div class="poi-progressbar-text">${job.progress_percent}%</div>
+      </div>
+    `;
+  }
+  if (job.status === 'running') {
+    return `
+      <div class="poi-progressbar">
+        <div class="poi-progressbar-value indeterminate"></div>
+        <div class="poi-progressbar-text">PROCESSING...</div>
+      </div>
+    `;
+  }
+  return '';
+}
+
 async function loadDownloadJobs() {
   const jobs = await request('/api/downloads');
   if (!jobs.length) {
@@ -821,6 +841,7 @@ async function loadDownloadJobs() {
         <strong>${job.target.toUpperCase()}</strong>
         <span class="job-status">${job.status}</span>
       </div>
+      ${renderJobProgress(job)}
       ${job.progress_text ? `<div class="job-progress">${escapeHtml(job.progress_text)}</div>` : ''}
       ${job.current_item && job.current_item !== job.progress_text ? `<div class="job-current">当前：${escapeHtml(job.current_item)}</div>` : ''}
       ${job.status === 'failed' && job.error_line ? `<div class="job-error">错误：${escapeHtml(job.error_line)}</div>` : ''}
