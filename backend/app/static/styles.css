@@ -57,8 +57,7 @@ body {
   font-family: var(--font-body);
   color: var(--text);
   background:
-    radial-gradient(circle at 15% 10%, rgba(255, 0, 0, 0.06), transparent 35%),
-    radial-gradient(circle at 85% 0%, rgba(255, 0, 0, 0.03), transparent 25%),
+    url('/static/machinebg.png') center/cover no-repeat fixed,
     var(--bg);
   min-height: 100vh;
   font-size: 15px;
@@ -129,7 +128,8 @@ button {
   grid-template-columns: 360px 1fr;
   gap: 18px;
   padding: 18px;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .sidebar,
@@ -138,6 +138,8 @@ button {
   display: flex;
   flex-direction: column;
   gap: 18px;
+  height: 100%;
+  overflow: hidden;
 }
 
 .brand-card {
@@ -343,7 +345,7 @@ button:disabled {
 }
 
 .catalog-results {
-  max-height: 300px;
+  max-height: 220px;
   overflow: auto;
   display: grid;
   gap: 8px;
@@ -445,6 +447,8 @@ button:disabled {
   margin-top: 12px;
   display: grid;
   gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .status-item {
@@ -598,16 +602,37 @@ summary {
 .toolbar {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   align-items: center;
-  padding: 14px 16px;
+  padding: 10px 14px;
   background: var(--bg-panel-solid);
+  flex-shrink: 0;
+}
+
+.toolbar > div:first-child {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toolbar .eyebrow {
+  font-size: 10px;
+  margin: 0;
+}
+
+.toolbar h2 {
+  font-size: 16px;
+}
+
+.toolbar .subtitle {
+  font-size: 12px;
 }
 
 .toolbar-actions {
   display: flex;
-  gap: 10px;
-  width: min(460px, 100%);
+  gap: 8px;
+  width: min(420px, 100%);
 }
 
 .workspace-grid {
@@ -626,22 +651,22 @@ summary {
 
 .dialogue-list {
   display: grid;
-  gap: 14px;
+  gap: 10px;
   overflow: auto;
-  padding: 20px;
+  padding: 12px;
 }
 
 .dialogue-line,
 .direction-card {
   background: var(--bg-panel-solid);
-  padding: 16px;
+  padding: 10px 12px;
   border: 2px solid var(--line-dim);
 }
 
 .dialogue-line {
   display: grid;
-  grid-template-columns: 130px 1fr;
-  gap: 14px;
+  grid-template-columns: 90px 1fr;
+  gap: 10px;
 }
 
 .speaker-tag,
@@ -656,8 +681,9 @@ summary {
 }
 
 .speaker-tag {
-  padding: 12px 10px;
-  min-height: 48px;
+  padding: 6px 8px;
+  min-height: 32px;
+  font-size: 11px;
   background: rgba(255, 0, 0, 0.10);
   border: 2px solid rgba(255, 0, 0, 0.25);
   color: var(--accent);
@@ -665,11 +691,11 @@ summary {
 }
 
 .speaker-chip {
-  padding: 8px 12px;
+  padding: 5px 10px;
   border: 2px solid transparent;
   background: rgba(255, 255, 255, 0.04);
   color: var(--text);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .speaker-chip.selected {
@@ -781,14 +807,18 @@ summary {
 .speaker-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding: 12px;
+  gap: 6px;
+  padding: 10px 12px;
+  max-height: 160px;
+  overflow-y: auto;
 }
 
 .translation-panel {
   display: grid;
   gap: 12px;
-  padding: 12px;
+  padding: 10px 12px;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .search-box-row {
@@ -807,7 +837,7 @@ summary {
 .search-results {
   display: grid;
   gap: 8px;
-  max-height: 260px;
+  max-height: 200px;
   overflow: auto;
   padding: 0 12px 12px;
 }
@@ -944,7 +974,7 @@ summary {
 .ai-panel {
   display: grid;
   gap: 10px;
-  max-height: 400px;
+  max-height: 280px;
   overflow: auto;
   padding: 0 12px 12px;
 }
@@ -964,7 +994,7 @@ summary {
 .collection-items {
   display: grid;
   gap: 8px;
-  max-height: 320px;
+  max-height: 240px;
   overflow: auto;
   padding: 0 12px 12px;
 }
@@ -1901,8 +1931,7 @@ summary {
 
 [data-theme="light"] body {
   background:
-    radial-gradient(circle at 12% 8%, rgba(189, 0, 0, 0.03), transparent 30%),
-    radial-gradient(circle at 88% 0%, rgba(189, 0, 0, 0.015), transparent 24%),
+    url('/static/lensgrid.png') center/cover no-repeat fixed,
     var(--bg);
 }
 

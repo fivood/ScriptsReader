@@ -88,13 +88,15 @@ def _parse_markdown(path: Path) -> list[ParsedEpisode]:
     h1_match = re.search(r"^#\s+(.+)$", text, re.MULTILINE)
     if h1_match:
         h1_title = h1_match.group(1).strip()
-        if "—" in h1_title and "Season" in h1_title:
-            show_name = h1_title.split("—", 1)[0].strip()
+        # Support both Chinese em-dash (—) and ASCII hyphen (-)
+        separator = "—" if "—" in h1_title else ("-" if " - " in h1_title else None)
+        if separator and "Season" in h1_title:
+            show_name = h1_title.split(separator, 1)[0].strip()
             season_match = SEASON_RE.search(h1_title)
             if season_match:
                 season_number = int(season_match.group(1))
-        elif "—" in h1_title:
-            show_name = h1_title.split("—", 1)[0].strip()
+        elif separator:
+            show_name = h1_title.split(separator, 1)[0].strip()
 
     if re.search(r"^##\s+", text, re.MULTILINE):
         episodes: list[ParsedEpisode] = []
@@ -126,6 +128,8 @@ def _parse_markdown(path: Path) -> list[ParsedEpisode]:
     title = h1_match.group(1).strip() if h1_match else path.stem
     if "—" in title:
         _, title = [part.strip() for part in title.split("—", 1)]
+    elif " - " in title:
+        _, title = [part.strip() for part in title.split(" - ", 1)]
     episode_code, inferred_season = _infer_episode_meta(title)
     split_marker = re.split(r"\n---\n", text, maxsplit=1)
     body = split_marker[1] if len(split_marker) == 2 else text
