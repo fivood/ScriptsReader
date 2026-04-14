@@ -62,6 +62,7 @@ const elements = {
   aiProfileBtn: document.getElementById('ai-profile-btn'),
   // ── Settings modal ──
   openSettings: document.getElementById('open-settings'),
+  themeToggle: document.getElementById('theme-toggle'),
   settingsOverlay: document.getElementById('settings-overlay'),
   closeSettings: document.getElementById('close-settings'),
   sOllamaUrl: document.getElementById('s-ollama-url'),
@@ -1323,6 +1324,25 @@ function formatAiReply(text) {
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
 }
 
+function loadTheme() {
+  const saved = localStorage.getItem('scriptsreader-theme');
+  const theme = saved || 'dark';
+  document.documentElement.setAttribute('data-theme', theme);
+  if (elements.themeToggle) {
+    elements.themeToggle.textContent = theme === 'light' ? '🌙' : '☀️';
+  }
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  const next = current === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('scriptsreader-theme', next);
+  if (elements.themeToggle) {
+    elements.themeToggle.textContent = next === 'light' ? '🌙' : '☀️';
+  }
+}
+
 async function translateAll() {
   if (!state.currentEpisode) return;
   if (state.translateAllActive) {
@@ -1485,6 +1505,9 @@ function wireEvents() {
   elements.ollamaModel.addEventListener('change', () => {
     state.ollamaModel = elements.ollamaModel.value;
   });
+  if (elements.themeToggle) {
+    elements.themeToggle.addEventListener('click', toggleTheme);
+  }
   // ── Settings modal ──
   elements.openSettings.addEventListener('click', async () => {
     await loadSettings();
@@ -1525,6 +1548,7 @@ function wireEvents() {
 }
 
 async function bootstrap() {
+  loadTheme();
   wireEvents();
   loadAppVersion();
   await loadCatalogStatus();
