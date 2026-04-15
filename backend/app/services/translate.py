@@ -7,6 +7,8 @@ import uuid
 
 import httpx
 
+from ..database import get_connection
+
 
 async def translate_deepl(text: str, api_key: str, api_url: str, target_lang: str) -> str:
     async with httpx.AsyncClient(timeout=20) as client:
@@ -99,3 +101,30 @@ async def translate_youdao(text: str, app_key: str, secret_key: str, target_lang
     # v2/api 返回 translateResults（对象数组），每项包含 translation 字段
     results = data.get("translateResults") or []
     return "\n".join(item.get("translation", "") for item in results)
+
+
+def save_translations(episode_id: int, translations: list[dict]) -> dict:
+    """Save translated lines back to the database.
+
+    Each item in translations should be a dict with:
+        line_index: int
+        translation: str
+    """
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT COUNT(1) AS c FROM episodes WHERE id = ?", (episode_id,)
+        ).fetchone()
+        if not row or int(row["c"]) == 0:
+            raise ValueError("Episode not found")
+
+        for item in translations:
+            conn.execute(
+                """
+                UPDATE dialogue_lines
+                SET translation = ?
+                WHERE episode_id = ? AND line_index = ?
+                """,
+                (item.get("translation", ""), episode_id, int(item["line_index"])),
+            )
+
+    return {"episode_id": episode_id, "saved_count": len(translations)}

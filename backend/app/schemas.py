@@ -9,6 +9,7 @@ class DialogueLine(BaseModel):
     line_index: int
     speaker: str | None = None
     text: str
+    translation: str | None = None
     is_direction: bool = False
 
 
@@ -62,6 +63,16 @@ class TranslationResponse(BaseModel):
     provider: str | None = None
     translation: str | None = None
     message: str | None = None
+
+
+class TranslationLineItem(BaseModel):
+    line_index: int = Field(..., ge=0)
+    translation: str
+
+
+class TranslationSaveRequest(BaseModel):
+    episode_id: int
+    translations: list[TranslationLineItem]
 
 
 class DownloadStartRequest(BaseModel):

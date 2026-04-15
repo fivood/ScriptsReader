@@ -249,7 +249,7 @@ def fetch_episode_content(episode_id: int, speakers: set[str] | None = None) -> 
             return None
 
         query = """
-            SELECT line_index, speaker, text, is_direction
+            SELECT line_index, speaker, text, translation, is_direction
             FROM dialogue_lines
             WHERE episode_id = ?
         """
@@ -280,6 +280,7 @@ def fetch_episode_content(episode_id: int, speakers: set[str] | None = None) -> 
                 "line_index": int(line["line_index"]),
                 "speaker": line["speaker"],
                 "text": line["text"],
+                "translation": line["translation"],
                 "is_direction": bool(line["is_direction"]),
             }
             for line in lines

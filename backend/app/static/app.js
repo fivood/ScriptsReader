@@ -677,11 +677,25 @@ async function selectEpisode(episodeId) {
   renderLibrary();
   elements.episodeTitle.textContent = `${state.currentEpisode.episode_code || ''} ${state.currentEpisode.title}`.trim();
   elements.episodeMeta.textContent = `${state.currentEpisode.show_name} · Season ${String(state.currentEpisode.season_number).padStart(2, '0')} · ${state.currentEpisode.source_path}`;
+  // Load any previously saved translations
   state.lineTranslations = {};
+  let savedCount = 0;
+  for (const line of state.currentEpisode.lines || []) {
+    if (line.translation) {
+      state.lineTranslations[String(line.line_index)] = line.translation;
+      savedCount++;
+    }
+  }
   state.translateAllActive = false;
-  elements.translationPanel.className = 'translation-panel empty-state';
-  elements.translationPanel.textContent = '使用“全文翻译”后，翻译结果会显示在每条台词下方。';
-  elements.translateAllBtn.textContent = '⚡ 全文翻译';
+  if (savedCount > 0) {
+    elements.translationPanel.className = 'translation-panel';
+    elements.translationPanel.innerHTML = `<div class="translation-content">已加载 ${savedCount} 条保存的翻译</div>`;
+    elements.translateAllBtn.textContent = `✓ 已翻译 ${savedCount} 行`;
+  } else {
+    elements.translationPanel.className = 'translation-panel empty-state';
+    elements.translationPanel.textContent = '使用“全文翻译”后，翻译结果会显示在每条台词下方。';
+    elements.translateAllBtn.textContent = '⚡ 全文翻译';
+  }
   elements.translateAllBtn.disabled = false;
   elements.translateAllBtn.classList.remove('running');
   renderSpeakers();
@@ -1088,10 +1102,13 @@ async function loadOllamaModels() {
     elements.ollamaModel.innerHTML = opts;
     if (elements.sOllamaModel) elements.sOllamaModel.innerHTML = opts;
     if (models.length) {
-      state.ollamaModel = models[0].name;
-      elements.ollamaModel.value = models[0].name;
-      if (elements.sOllamaModel) elements.sOllamaModel.value = models[0].name;
-      if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = models[0].name;
+      const current = state.ollamaModel;
+      const exists = models.some(m => m.name === current);
+      const selected = exists ? current : models[0].name;
+      state.ollamaModel = selected;
+      elements.ollamaModel.value = selected;
+      if (elements.sOllamaModel) elements.sOllamaModel.value = selected;
+      if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = selected;
     } else {
       state.ollamaModel = '';
       if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = '无可用模型';
@@ -1193,10 +1210,6 @@ async function loadSettings() {
   try {
     const data = await request('/api/settings');
     if (elements.sOllamaUrl) elements.sOllamaUrl.value = data.ollama_base_url || '';
-    if (elements.sTransProvider) elements.sTransProvider.value = data.translation_provider || 'auto';
-    setBadge(elements.sBaiduBadge, data.baidu_configured);
-    setBadge(elements.sYoudaoBadge, data.youdao_configured);
-    setBadge(elements.sDeeplBadge, data.deepl_configured);
   } catch {
     // silent fail — settings modal will still open
   }
@@ -1206,21 +1219,6 @@ async function saveSettings() {
   const patch = {};
   const ollUrl = elements.sOllamaUrl?.value.trim();
   if (ollUrl) patch.ollama_base_url = ollUrl;
-
-  const prov = elements.sTransProvider?.value;
-  if (prov) patch.translation_provider = prov;
-
-  const fields = [
-    ['sBaiduAppid', 'baidu_app_id'],
-    ['sBaiduSecret', 'baidu_secret_key'],
-    ['sYoudaoAppkey', 'youdao_app_key'],
-    ['sYoudaoSecret', 'youdao_secret_key'],
-    ['sDeeplKey', 'deepl_api_key'],
-  ];
-  for (const [elKey, patchKey] of fields) {
-    const val = elements[elKey]?.value.trim();
-    if (val) patch[patchKey] = val;
-  }
 
   if (!Object.keys(patch).length) {
     elements.sSaveMsg.textContent = '没有要保存的变更';
@@ -1236,10 +1234,6 @@ async function saveSettings() {
       body: JSON.stringify(patch),
     });
     elements.sSaveMsg.textContent = '✓ 已保存';
-    // clear password fields after save
-    ['sBaiduSecret', 'sYoudaoSecret', 'sDeeplKey'].forEach(k => {
-      if (elements[k]) elements[k].value = '';
-    });
     await loadSettings();
     // if URL changed, re-probe Ollama
     if (patch.ollama_base_url) await loadOllamaStatus();
@@ -1381,16 +1375,11 @@ async function translateAll() {
 
   for (const line of allLines) {
     if (!state.translateAllActive) break;
-    const idx = state.currentEpisode.lines.indexOf(line);
-    const contextBefore = state.currentEpisode.lines
-      .slice(Math.max(idx - 1, 0), idx).map(l => l.text);
-    const contextAfter = state.currentEpisode.lines
-      .slice(idx + 1, idx + 2).map(l => l.text);
     try {
       const result = await request('/api/translate/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: line.text, context_before: contextBefore, context_after: contextAfter }),
+        body: JSON.stringify({ text: line.text, context_before: [], context_after: [] }),
       });
       const translation = result.translation || result.message || '';
       if (translation) {
@@ -1417,6 +1406,24 @@ async function translateAll() {
   state.translateAllActive = false;
   elements.translateAllBtn.classList.remove('running');
   const stopped = done < total;
+
+  // Auto-save translations to the server
+  if (Object.keys(state.lineTranslations).length > 0) {
+    try {
+      const translations = Object.entries(state.lineTranslations).map(([line_index, translation]) => ({
+        line_index: parseInt(line_index, 10),
+        translation,
+      }));
+      await request('/api/translate/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ episode_id: state.currentEpisode.id, translations }),
+      });
+    } catch (err) {
+      console.error('保存翻译失败', err);
+    }
+  }
+
   elements.translateAllBtn.textContent = stopped
     ? `⚡ 继续翻译 (${done}/${total})`
     : `✓ 已翻译 ${total} 行`;
@@ -1525,6 +1532,8 @@ function wireEvents() {
   elements.ollamaRefreshModels.addEventListener('click', () => elements.openSettings.click());
   elements.ollamaModel.addEventListener('change', () => {
     state.ollamaModel = elements.ollamaModel.value;
+    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = elements.ollamaModel.value || '未选择模型';
+    if (elements.sOllamaModel) elements.sOllamaModel.value = elements.ollamaModel.value;
   });
   if (elements.themeToggle) {
     elements.themeToggle.addEventListener('click', toggleTheme);

@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS dialogue_lines (
     line_index INTEGER NOT NULL,
     speaker TEXT,
     text TEXT NOT NULL,
+    translation TEXT,
     is_direction INTEGER NOT NULL DEFAULT 0,
     UNIQUE(episode_id, line_index)
 );
@@ -116,3 +117,10 @@ def get_connection() -> sqlite3.Connection:
 def init_db() -> None:
     with get_connection() as conn:
         conn.executescript(SCHEMA)
+        # Migration: add translation column to dialogue_lines if missing
+        columns = [
+            row[1]
+            for row in conn.execute("PRAGMA table_info(dialogue_lines)").fetchall()
+        ]
+        if "translation" not in columns:
+            conn.execute("ALTER TABLE dialogue_lines ADD COLUMN translation TEXT")

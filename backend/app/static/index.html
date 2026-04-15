@@ -219,14 +219,11 @@
           <span id="s-ollama-status" class="settings-hint"></span>
         </section>
 
-        <section class="settings-section">
+        <section class="settings-section" hidden>
           <h3>🌐 翻译服务</h3>
           <label class="settings-label" for="s-trans-provider">优先 Provider</label>
           <select id="s-trans-provider" class="model-select">
-            <option value="auto">auto（自动选第一个可用）</option>
-            <option value="baidu">百度翻译</option>
-            <option value="youdao">有道智云</option>
-            <option value="deepl">DeepL</option>
+            <option value="ollama">Ollama（本地模型）</option>
           </select>
 
           <details class="settings-provider-group">
