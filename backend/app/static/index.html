@@ -78,6 +78,7 @@
           <p class="eyebrow">当前阅读</p>
           <h2 id="episode-title">选择一集开始</h2>
           <p id="episode-meta" class="subtitle"></p>
+          <button id="edit-episode-meta" class="ghost-btn" style="font-size:11px;padding:4px 8px;margin-top:6px;display:none">✎ 编辑信息</button>
         </div>
         <div class="toolbar-actions">
           <input id="episode-search" type="search" placeholder="在当前集内搜索对白">
@@ -119,6 +120,7 @@
             </div>
             <div id="speaker-filters" class="speaker-filters empty-state">暂无角色</div>
             <div class="search-box-row" style="margin-top:10px; margin-bottom:8px;">
+              <button id="bulk-speaker-btn" class="ghost-btn" disabled>批量改角色名</button>
               <button id="track-speaker-btn" class="ghost-btn" disabled>跨集追踪所选角色</button>
             </div>
             <div id="speaker-track-results" class="search-results empty-state">选中 1 个角色后可跨集追踪其全部台词。</div>

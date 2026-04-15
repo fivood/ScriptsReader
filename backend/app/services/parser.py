@@ -17,6 +17,7 @@ class ParsedLine:
     speaker: str | None
     text: str
     is_direction: bool = False
+    translation: str | None = None
 
 
 @dataclass
@@ -211,17 +212,41 @@ def _parse_json(path: Path) -> list[ParsedEpisode]:
     ]
 
 
+def _is_bilingual(first: str, second: str) -> bool:
+    """Heuristic: detect if two lines are likely different languages."""
+    import unicodedata
+
+    def _cjk_ratio(s: str) -> float:
+        if not s:
+            return 0.0
+        cjk = sum(1 for ch in s if "\u4e00" <= ch <= "\u9fff" or "\u3040" <= ch <= "\u309f" or "\u30a0" <= ch <= "\u30ff")
+        return cjk / len(s)
+
+    def _latin_ratio(s: str) -> float:
+        if not s:
+            return 0.0
+        latin = sum(1 for ch in s if unicodedata.category(ch).startswith("L") and ch.isascii())
+        return latin / len(s)
+
+    # If one is dominantly CJK and the other dominantly Latin, treat as bilingual pair.
+    return (_cjk_ratio(first) > 0.4 and _latin_ratio(second) > 0.4) or (_cjk_ratio(second) > 0.4 and _latin_ratio(first) > 0.4)
+
+
 def _parse_srt(path: Path) -> list[ParsedEpisode]:
     text = _clean_text(path.read_text(encoding="utf-8"))
     blocks = re.split(r"\n\s*\n", text)
-    merged_lines: list[str] = []
+    lines: list[ParsedLine] = []
     for block in blocks:
         rows = [row.strip() for row in block.splitlines() if row.strip()]
         if len(rows) < 2:
             continue
         content_rows = [row for row in rows if not row.isdigit() and "-->" not in row]
-        if content_rows:
-            merged_lines.append(" ".join(content_rows))
+        if not content_rows:
+            continue
+        if len(content_rows) >= 2 and _is_bilingual(content_rows[0], content_rows[1]):
+            lines.append(ParsedLine(speaker=None, text=content_rows[0], translation=content_rows[1]))
+        else:
+            lines.append(ParsedLine(speaker=None, text=" ".join(content_rows)))
     title = path.stem
     episode_code, season_number = _infer_episode_meta(title)
     return [
@@ -232,23 +257,29 @@ def _parse_srt(path: Path) -> list[ParsedEpisode]:
             title=title,
             source_path=str(path),
             source_url=None,
-            lines=_parse_dialogue_block("\n".join(merged_lines)),
+            lines=lines,
         )
     ]
 
 
 def _parse_ass(path: Path) -> list[ParsedEpisode]:
     text = _clean_text(path.read_text(encoding="utf-8"))
-    dialogue_rows: list[str] = []
+    lines: list[ParsedLine] = []
     for row in text.splitlines():
         if not row.startswith("Dialogue:"):
             continue
         parts = row.split(",", 9)
         if len(parts) < 10:
             continue
-        content = re.sub(r"\{[^}]+\}", "", parts[9]).replace("\\N", " ").strip()
-        if content:
-            dialogue_rows.append(content)
+        raw = re.sub(r"\{[^}]+\}", "", parts[9]).strip()
+        # ASS uses \N for hard line breaks inside same subtitle event
+        segments = [seg.strip() for seg in re.split(r"\\N", raw) if seg.strip()]
+        if not segments:
+            continue
+        if len(segments) >= 2 and _is_bilingual(segments[0], segments[1]):
+            lines.append(ParsedLine(speaker=None, text=segments[0], translation=segments[1]))
+        else:
+            lines.append(ParsedLine(speaker=None, text=" ".join(segments)))
     title = path.stem
     episode_code, season_number = _infer_episode_meta(title)
     return [
@@ -259,7 +290,7 @@ def _parse_ass(path: Path) -> list[ParsedEpisode]:
             title=title,
             source_path=str(path),
             source_url=None,
-            lines=_parse_dialogue_block("\n".join(dialogue_rows)),
+            lines=lines,
         )
     ]
 

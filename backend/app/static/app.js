@@ -37,6 +37,7 @@ const elements = {
   speakerFilters: document.getElementById('speaker-filters'),
   speakerCount: document.getElementById('speaker-count'),
   trackSpeakerBtn: document.getElementById('track-speaker-btn'),
+  bulkSpeakerBtn: document.getElementById('bulk-speaker-btn'),
   speakerTrackResults: document.getElementById('speaker-track-results'),
   translationPanel: document.getElementById('translation-panel'),
   episodeSearch: document.getElementById('episode-search'),
@@ -81,6 +82,7 @@ const elements = {
   sSave: document.getElementById('s-save'),
   sSaveMsg: document.getElementById('s-save-msg'),
   translateAllBtn: document.getElementById('translate-all-btn'),
+  editEpisodeMetaBtn: document.getElementById('edit-episode-meta'),
   collectionCount: document.getElementById('collection-count'),
   collectionSelect: document.getElementById('collection-select'),
   collectionDelete: document.getElementById('collection-delete'),
@@ -369,6 +371,9 @@ function renderSpeakers() {
   if (elements.trackSpeakerBtn) {
     elements.trackSpeakerBtn.disabled = state.selectedSpeakers.size !== 1;
   }
+  if (elements.bulkSpeakerBtn) {
+    elements.bulkSpeakerBtn.disabled = !state.currentEpisode;
+  }
 }
 
 async function runSpeakerTimeline() {
@@ -429,9 +434,10 @@ function renderDialogue() {
 
     const speaker = line.speaker || 'NARRATION';
     const focused = state.focusedLineIndex === line.line_index ? ' focused-line' : '';
+    const isSubtitle = line.speaker == null && line.translation;
     return `
-      <article class="dialogue-line${focused} ${highlightColor ? `hl-${highlightColor}` : ''}" data-line-index="${line.line_index}">
-        <div class="speaker-tag ${speakerColor(speaker)}">${speaker}</div>
+      <article class="dialogue-line${focused} ${highlightColor ? `hl-${highlightColor}` : ''}${isSubtitle ? ' subtitle-line' : ''}" data-line-index="${line.line_index}">
+        <div class="speaker-tag ${speakerColor(speaker)}">${speaker}${isSubtitle ? '<span class="subtitle-badge">CC</span>' : ''}</div>
         <div class="line-body">
           <p>${escapeHtml(line.text)}</p>
           ${inlineTranslation ? `<div class="inline-translation">${escapeHtml(inlineTranslation)}</div>` : ''}
@@ -677,6 +683,7 @@ async function selectEpisode(episodeId) {
   renderLibrary();
   elements.episodeTitle.textContent = `${state.currentEpisode.episode_code || ''} ${state.currentEpisode.title}`.trim();
   elements.episodeMeta.textContent = `${state.currentEpisode.show_name} · Season ${String(state.currentEpisode.season_number).padStart(2, '0')} · ${state.currentEpisode.source_path}`;
+  if (elements.editEpisodeMetaBtn) elements.editEpisodeMetaBtn.style.display = 'inline-block';
   // Load any previously saved translations
   state.lineTranslations = {};
   let savedCount = 0;
@@ -751,6 +758,66 @@ async function editNote(lineIndex) {
     }),
   });
   renderDialogue();
+}
+
+async function editEpisodeMeta() {
+  if (!state.currentEpisode) return;
+  const ep = state.currentEpisode;
+  const showName = await hudPrompt({ title: '编辑剧集信息', label: '剧名', defaultValue: ep.show_name || '' });
+  if (showName === null) return;
+  const seasonNum = await hudPrompt({ title: '编辑剧集信息', label: '季号（数字）', defaultValue: String(ep.season_number || 0) });
+  if (seasonNum === null) return;
+  const episodeCode = await hudPrompt({ title: '编辑剧集信息', label: '集代码（如 S01E01，可留空）', defaultValue: ep.episode_code || '' });
+  if (episodeCode === null) return;
+  const title = await hudPrompt({ title: '编辑剧集信息', label: '标题', defaultValue: ep.title || '' });
+  if (title === null) return;
+
+  try {
+    await request(`/api/library/episodes/${ep.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        show_name: showName.trim() || ep.show_name,
+        season_number: parseInt(seasonNum.trim(), 10) || ep.season_number,
+        episode_code: episodeCode.trim() || null,
+        title: title.trim() || ep.title,
+      }),
+    });
+    await loadLibrary();
+    await selectEpisode(ep.id);
+    elements.downloadStatus.innerHTML = '<div class="status-item success">剧集信息已更新</div>';
+  } catch (error) {
+    elements.downloadStatus.innerHTML = `<div class="status-item warn">更新失败：${escapeHtml(String(error.message || error))}</div>`;
+  }
+}
+
+async function bulkRenameSpeaker() {
+  if (!state.currentEpisode) return;
+  const oldName = await hudPrompt({ title: '批量改角色名', label: '旧角色名（或 NARRATION）', defaultValue: 'NARRATION' });
+  if (oldName === null) return;
+  const newName = await hudPrompt({ title: '批量改角色名', label: '新角色名', defaultValue: '' });
+  if (newName === null || !newName.trim()) return;
+
+  const updates = state.currentEpisode.lines
+    .filter(line => (line.speaker || 'NARRATION') === oldName.trim())
+    .map(line => ({ line_index: line.line_index, speaker: newName.trim() }));
+
+  if (!updates.length) {
+    elements.downloadStatus.innerHTML = '<div class="status-item warn">没有找到匹配的角色</div>';
+    return;
+  }
+
+  try {
+    await request(`/api/library/episodes/${state.currentEpisode.id}/lines/bulk`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updates }),
+    });
+    await selectEpisode(state.currentEpisode.id);
+    elements.downloadStatus.innerHTML = `<div class="status-item success">已更新 ${updates.length} 行角色名</div>`;
+  } catch (error) {
+    elements.downloadStatus.innerHTML = `<div class="status-item warn">更新失败：${escapeHtml(String(error.message || error))}</div>`;
+  }
 }
 
 async function runGlobalSearch() {
@@ -1521,6 +1588,8 @@ function wireEvents() {
     renderCollections();
   });
   elements.trackSpeakerBtn.addEventListener('click', runSpeakerTimeline);
+  if (elements.bulkSpeakerBtn) elements.bulkSpeakerBtn.addEventListener('click', bulkRenameSpeaker);
+  if (elements.editEpisodeMetaBtn) elements.editEpisodeMetaBtn.addEventListener('click', editEpisodeMeta);
   elements.dialogueList.addEventListener('scroll', () => {
     const idx = topVisibleLineIndex();
     if (idx) saveReadingProgress(idx);

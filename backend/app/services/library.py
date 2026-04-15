@@ -70,10 +70,10 @@ def _store_episode(conn, episode: ParsedEpisode, source: str) -> int:
     for line_index, line in enumerate(episode.lines, start=1):
         conn.execute(
             """
-            INSERT OR REPLACE INTO dialogue_lines(episode_id, line_index, speaker, text, is_direction)
-            VALUES(?, ?, ?, ?, ?)
+            INSERT OR REPLACE INTO dialogue_lines(episode_id, line_index, speaker, text, translation, is_direction)
+            VALUES(?, ?, ?, ?, ?, ?)
             """,
-            (episode_id, line_index, line.speaker, line.text, int(line.is_direction)),
+            (episode_id, line_index, line.speaker, line.text, line.translation, int(line.is_direction)),
         )
 
     return episode_id
@@ -327,6 +327,98 @@ def upsert_reading_progress(episode_id: int, last_line: int) -> dict | None:
         "updated_at": payload["updated_at"],
         "status": status,
     }
+
+
+def update_episode_meta(episode_id: int, show_name: str | None, season_number: int | None, episode_code: str | None, title: str | None) -> dict | None:
+    init_db()
+    with get_connection() as conn:
+        row = conn.execute("SELECT id FROM episodes WHERE id = ?", (episode_id,)).fetchone()
+        if not row:
+            return None
+
+        # Update episode fields
+        if episode_code is not None or title is not None:
+            conn.execute(
+                """
+                UPDATE episodes
+                SET episode_code = COALESCE(?, episode_code),
+                    title = COALESCE(?, title)
+                WHERE id = ?
+                """,
+                (episode_code, title, episode_id),
+            )
+
+        if show_name is not None or season_number is not None:
+            current = conn.execute(
+                """
+                SELECT seasons.id AS season_id, seasons.show_id, seasons.season_number
+                FROM episodes
+                JOIN seasons ON seasons.id = episodes.season_id
+                WHERE episodes.id = ?
+                """,
+                (episode_id,),
+            ).fetchone()
+            if not current:
+                return None
+
+            target_show_name = show_name if show_name is not None else conn.execute(
+                "SELECT name FROM shows WHERE id = ?", (current["show_id"],)
+            ).fetchone()["name"]
+            target_season_number = season_number if season_number is not None else current["season_number"]
+
+            show_id = _get_or_create_show(conn, target_show_name, "manual_import")
+            season_id = _get_or_create_season(conn, show_id, target_season_number)
+
+            conn.execute(
+                "UPDATE episodes SET season_id = ? WHERE id = ?",
+                (season_id, episode_id),
+            )
+
+        updated = conn.execute(
+            """
+            SELECT episodes.id, episodes.episode_code, episodes.title,
+                   seasons.season_number, shows.name AS show_name
+            FROM episodes
+            JOIN seasons ON seasons.id = episodes.season_id
+            JOIN shows ON shows.id = seasons.show_id
+            WHERE episodes.id = ?
+            """,
+            (episode_id,),
+        ).fetchone()
+
+    return {
+        "id": int(updated["id"]),
+        "show_name": updated["show_name"],
+        "season_number": int(updated["season_number"]),
+        "episode_code": updated["episode_code"],
+        "title": updated["title"],
+    }
+
+
+def bulk_update_lines(episode_id: int, updates: list[dict]) -> dict | None:
+    init_db()
+    with get_connection() as conn:
+        exists = conn.execute("SELECT COUNT(1) AS c FROM episodes WHERE id = ?", (episode_id,)).fetchone()
+        if not exists or int(exists["c"]) == 0:
+            return None
+        for item in updates:
+            line_index = item.get("line_index")
+            if line_index is None:
+                continue
+            speaker = item.get("speaker")
+            text = item.get("text")
+            translation = item.get("translation")
+            conn.execute(
+                """
+                UPDATE dialogue_lines
+                SET speaker = COALESCE(?, speaker),
+                    text = COALESCE(?, text),
+                    translation = COALESCE(?, translation)
+                WHERE episode_id = ? AND line_index = ?
+                """,
+                (speaker, text, translation, episode_id, line_index),
+            )
+    return {"updated": len(updates)}
 
 
 def fetch_reading_progress(episode_id: int) -> dict | None:
