@@ -42,6 +42,12 @@ OLLAMA_TIMEOUT_SECONDS = float(os.getenv("OLLAMA_TIMEOUT_SECONDS", "120").strip(
 # Auth token for public access – leave empty to disable authentication
 AUTH_TOKEN = os.getenv("SR_AUTH_TOKEN", "").strip()
 
+# AI Provider settings
+AI_PROVIDER = os.getenv("AI_PROVIDER", "").strip()
+AI_BASE_URL = os.getenv("AI_BASE_URL", "").strip()
+AI_API_KEY = os.getenv("AI_API_KEY", "").strip()
+AI_MODEL = os.getenv("AI_MODEL", "").strip()
+
 
 def get_version() -> str:
     """Get version from version.txt or environment, fallback to default."""

@@ -59,7 +59,8 @@
           <span>手动导入</span>
           <small>支持 md / txt / json / srt / ass / fountain</small>
         </label>
-        <input id="manual-import" type="file" multiple hidden>
+        <input id="manual-import" type="file" multiple hidden accept=".md,.txt,.json,.srt,.ass,.fountain">
+        <div id="imports-list" class="mini-list" style="max-height:160px;"></div>
         <div id="download-status" class="mini-list"></div>
       </section>
 
@@ -197,28 +198,28 @@
       <div class="settings-body">
 
         <section class="settings-section">
-          <h3>🤖 本地 AI（Ollama）</h3>
-          <label class="settings-label" for="s-ollama-url">服务器回退地址（本机不可用时）</label>
-          <input id="s-ollama-url" type="text" placeholder="http://127.0.0.1:11434">
-          <div class="settings-guide">
-            <strong>本机 Ollama 安装配置（推荐）</strong>
-            <p><span class="guide-step">① 下载安装</span> 前往 <code>ollama.com</code> 下载对应系统的安装包（Windows / macOS / Linux），按向导安装完成后 Ollama 会作为后台服务自动运行。</p>
-            <p><span class="guide-step">② 启动服务</span> 安装后一般自动运行；如未启动，在终端执行 <code>ollama serve</code>（监听 <code>127.0.0.1:11434</code>）。</p>
-            <p><span class="guide-step">③ 拉取模型</span> 在终端执行以下任意一条命令（首次需要下载模型文件）：</p>
-            <p style="padding-left:12px"><code>ollama pull qwen2.5:7b</code>　　中文优先，约 4.7 GB，推荐日常使用</p>
-            <p style="padding-left:12px"><code>ollama pull qwen2.5:14b</code>　理解更强，需 8 GB+ 显存/内存</p>
-            <p style="padding-left:12px"><code>ollama pull llama3.2:3b</code>　　英文轻量，约 2.0 GB，低配可用</p>
-            <p><span class="guide-step">④ 验证连接</span> 模型下载完成后，刷新本页面或点击"⟳"按钮——AI 助手状态栏变为绿色即表示连接成功。</p>
-            <p>如在局域网服务器部署 Ollama，请在下方输入服务器地址；本机不可用时自动回退到该地址。</p>
-          </div>
+          <h3>🤖 AI 模型</h3>
+          <label class="settings-label" for="s-ai-provider">选择服务商</label>
+          <select id="s-ai-provider" class="model-select">
+            <option value="">请选择</option>
+            <option value="openai">OpenAI (GPT)</option>
+            <option value="moonshot">Kimi (Moonshot)</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="gemini">Gemini (Google)</option>
+            <option value="custom">自定义 (OpenAI 兼容)</option>
+          </select>
+          <label class="settings-label" for="s-ai-base-url">Base URL（选自定义时必填）</label>
+          <input id="s-ai-base-url" type="text" placeholder="https://api.example.com/v1">
+          <label class="settings-label" for="s-ai-api-key">API Key</label>
+          <input id="s-ai-api-key" type="password" placeholder="留空保持不变">
           <label class="settings-label" style="margin-top:10px">选择模型</label>
           <div class="settings-row">
-            <select id="s-ollama-model" class="model-select" style="flex:1">
-              <option value="">加载中…</option>
+            <select id="s-ai-model" class="model-select" style="flex:1">
+              <option value="">点击 ⟳ 检测模型</option>
             </select>
-            <button id="s-ollama-refresh" class="ghost-btn" title="刷新模型列表">⟳</button>
+            <button id="s-ai-refresh" class="ghost-btn" title="检测可用模型">⟳</button>
           </div>
-          <span id="s-ollama-status" class="settings-hint"></span>
+          <span id="s-ai-status" class="settings-hint"></span>
         </section>
 
         <section class="settings-section" hidden>

@@ -20,12 +20,17 @@ _KEY_FIELDS = [
     "YOUDAO_APP_KEY",
     "YOUDAO_SECRET_KEY",
     "DEEPL_API_KEY",
+    "AI_PROVIDER",
+    "AI_BASE_URL",
+    "AI_API_KEY",
+    "AI_MODEL",
 ]
 # Which fields contain secrets (mask the value in GET)
 _SECRET_FIELDS = {
     "BAIDU_TRANSLATE_SECRET_KEY",
     "YOUDAO_SECRET_KEY",
     "DEEPL_API_KEY",
+    "AI_API_KEY",
 }
 
 
@@ -82,6 +87,10 @@ class SettingsPatch(BaseModel):
     youdao_app_key: str | None = None
     youdao_secret_key: str | None = None
     deepl_api_key: str | None = None
+    ai_provider: str | None = None
+    ai_base_url: str | None = None
+    ai_api_key: str | None = None
+    ai_model: str | None = None
 
 
 @router.get("")
@@ -104,6 +113,11 @@ def get_settings() -> dict:
         "youdao_configured": bool(current.get("YOUDAO_APP_KEY") and current.get("YOUDAO_SECRET_KEY")),
         "deepl_api_key_masked": _mask("DEEPL_API_KEY", current.get("DEEPL_API_KEY", "")),
         "deepl_configured": bool(current.get("DEEPL_API_KEY")),
+        "ai_provider": current.get("AI_PROVIDER", ""),
+        "ai_base_url": current.get("AI_BASE_URL", ""),
+        "ai_api_key_masked": _mask("AI_API_KEY", current.get("AI_API_KEY", "")),
+        "ai_configured": bool(current.get("AI_PROVIDER") and current.get("AI_API_KEY") and current.get("AI_MODEL")),
+        "ai_model": current.get("AI_MODEL", ""),
     }
 
 
@@ -121,6 +135,10 @@ def patch_settings(payload: SettingsPatch) -> dict:
         "YOUDAO_APP_KEY": payload.youdao_app_key,
         "YOUDAO_SECRET_KEY": payload.youdao_secret_key,
         "DEEPL_API_KEY": payload.deepl_api_key,
+        "AI_PROVIDER": payload.ai_provider,
+        "AI_BASE_URL": payload.ai_base_url,
+        "AI_API_KEY": payload.ai_api_key,
+        "AI_MODEL": payload.ai_model,
     }
 
     updates: dict[str, str] = {}
@@ -155,5 +173,9 @@ def _reload_config() -> None:
         config.YOUDAO_APP_KEY = os.environ.get("YOUDAO_APP_KEY", "").strip()
         config.YOUDAO_SECRET_KEY = os.environ.get("YOUDAO_SECRET_KEY", "").strip()
         config.TRANSLATION_PROVIDER = os.environ.get("TRANSLATION_PROVIDER", "auto").strip().lower()
+        config.AI_PROVIDER = os.environ.get("AI_PROVIDER", "").strip()
+        config.AI_BASE_URL = os.environ.get("AI_BASE_URL", "").strip()
+        config.AI_API_KEY = os.environ.get("AI_API_KEY", "").strip()
+        config.AI_MODEL = os.environ.get("AI_MODEL", "").strip()
     except Exception:
         pass

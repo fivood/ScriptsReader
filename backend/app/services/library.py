@@ -108,6 +108,12 @@ def _iter_source_files() -> list[Path]:
         source_dirs.append(src)
 
     files: list[Path] = []
+    # Also pick up loose files placed directly in the workspace root
+    if WORKSPACE_ROOT.exists():
+        for child in WORKSPACE_ROOT.iterdir():
+            if child.is_file() and child.suffix.lower() in SUPPORTED_IMPORT_EXTENSIONS:
+                files.append(child)
+
     for source_dir in source_dirs:
         if not source_dir.exists():
             continue
@@ -122,7 +128,7 @@ def _iter_source_files() -> list[Path]:
                 path = root_path / file_name
                 if path.suffix.lower() in SUPPORTED_IMPORT_EXTENSIONS:
                     files.append(path)
-    return sorted(files)
+    return sorted(set(files))
 
 
 def rebuild_library() -> dict[str, int]:
@@ -161,6 +167,82 @@ def save_uploaded_file(filename: str, content: bytes) -> Path:
     destination = IMPORTS_DIR / safe_name
     destination.write_bytes(content)
     return destination
+
+
+def delete_imported_file(filename: str) -> int:
+    init_db()
+    safe_name = Path(filename).name
+    if not safe_name or safe_name != filename:
+        raise ValueError("Invalid filename")
+
+    file_path = (IMPORTS_DIR / safe_name).resolve()
+    if not file_path.exists():
+        raise FileNotFoundError()
+
+    with get_connection() as conn:
+        # Find episodes associated with this file
+        rows = conn.execute(
+            "SELECT id FROM episodes WHERE source_path = ?",
+            (str(file_path),),
+        ).fetchall()
+        episode_ids = [r["id"] for r in rows]
+
+        for eid in episode_ids:
+            conn.execute("DELETE FROM collection_items WHERE episode_id = ?", (eid,))
+            conn.execute("DELETE FROM reading_progress WHERE episode_id = ?", (eid,))
+            conn.execute("DELETE FROM highlights WHERE episode_id = ?", (eid,))
+            conn.execute("DELETE FROM notes WHERE episode_id = ?", (eid,))
+            conn.execute("DELETE FROM dialogue_lines WHERE episode_id = ?", (eid,))
+
+        if episode_ids:
+            placeholders = ",".join("?" for _ in episode_ids)
+            conn.execute(f"DELETE FROM episodes WHERE id IN ({placeholders})", tuple(episode_ids))
+
+    file_path.unlink()
+    return len(episode_ids)
+
+
+def delete_episode(episode_id: int) -> dict | None:
+    init_db()
+    with get_connection() as conn:
+        row = conn.execute("SELECT id FROM episodes WHERE id = ?", (episode_id,)).fetchone()
+        if not row:
+            return None
+
+        conn.execute("DELETE FROM collection_items WHERE episode_id = ?", (episode_id,))
+        conn.execute("DELETE FROM reading_progress WHERE episode_id = ?", (episode_id,))
+        conn.execute("DELETE FROM highlights WHERE episode_id = ?", (episode_id,))
+        conn.execute("DELETE FROM notes WHERE episode_id = ?", (episode_id,))
+        conn.execute("DELETE FROM dialogue_lines WHERE episode_id = ?", (episode_id,))
+
+        # Get season/show info before deleting episode
+        season_row = conn.execute(
+            "SELECT season_id FROM episodes WHERE id = ?", (episode_id,)
+        ).fetchone()
+        season_id = season_row["season_id"] if season_row else None
+
+        conn.execute("DELETE FROM episodes WHERE id = ?", (episode_id,))
+
+        show_id = None
+        if season_id is not None:
+            remaining_eps = conn.execute(
+                "SELECT COUNT(1) AS c FROM episodes WHERE season_id = ?", (season_id,)
+            ).fetchone()
+            if remaining_eps and int(remaining_eps["c"]) == 0:
+                show_row = conn.execute(
+                    "SELECT show_id FROM seasons WHERE id = ?", (season_id,)
+                ).fetchone()
+                show_id = show_row["show_id"] if show_row else None
+                conn.execute("DELETE FROM seasons WHERE id = ?", (season_id,))
+
+        if show_id is not None:
+            remaining_seasons = conn.execute(
+                "SELECT COUNT(1) AS c FROM seasons WHERE show_id = ?", (show_id,)
+            ).fetchone()
+            if remaining_seasons and int(remaining_seasons["c"]) == 0:
+                conn.execute("DELETE FROM shows WHERE id = ?", (show_id,))
+
+    return {"deleted": True}
 
 
 def copy_into_library(source_path: Path) -> Path:

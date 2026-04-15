@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from ..schemas import ReadingProgressUpsertRequest
 from ..services.library import (
     bulk_update_lines,
+    delete_episode,
     fetch_episode_content,
     fetch_library_tree,
     fetch_reading_progress,
@@ -88,6 +89,14 @@ def patch_episode(episode_id: int, body: EpisodeMetaPatch) -> dict:
 @router.patch("/episodes/{episode_id}/lines/bulk")
 def patch_lines_bulk(episode_id: int, body: LinesBulkPatch) -> dict:
     payload = bulk_update_lines(episode_id, [item.model_dump() for item in body.updates])
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Episode not found")
+    return payload
+
+
+@router.delete("/episodes/{episode_id}")
+def remove_episode(episode_id: int) -> dict:
+    payload = delete_episode(episode_id)
     if payload is None:
         raise HTTPException(status_code=404, detail="Episode not found")
     return payload

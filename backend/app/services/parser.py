@@ -31,6 +31,24 @@ class ParsedEpisode:
     lines: list[ParsedLine]
 
 
+def _read_text(path: Path) -> str:
+    """Read text with encoding fallback."""
+    # Check UTF-16 BOM first
+    try:
+        raw = path.read_bytes()
+        if raw.startswith(b'\xff\xfe') or raw.startswith(b'\xfe\xff'):
+            return raw.decode("utf-16")
+    except Exception:
+        pass
+    for enc in ("utf-8", "utf-8-sig", "gbk", "gb2312", "gb18030", "latin-1"):
+        try:
+            return path.read_text(encoding=enc)
+        except UnicodeDecodeError:
+            continue
+    # Last resort: replace invalid chars
+    return path.read_text(encoding="utf-8", errors="replace")
+
+
 def _clean_text(text: str) -> str:
     text = text.replace("\ufeff", "")
     text = text.replace("\r\n", "\n").replace("\r", "\n")
@@ -81,7 +99,7 @@ def _parse_dialogue_block(text: str) -> list[ParsedLine]:
 
 
 def _parse_markdown(path: Path) -> list[ParsedEpisode]:
-    text = _clean_text(path.read_text(encoding="utf-8"))
+    text = _clean_text(_read_text(path))
     show_name = path.stem
     season_number = 0
     source_url = None
@@ -149,7 +167,7 @@ def _parse_markdown(path: Path) -> list[ParsedEpisode]:
 
 
 def _parse_txt(path: Path) -> list[ParsedEpisode]:
-    text = _clean_text(path.read_text(encoding="utf-8"))
+    text = _clean_text(_read_text(path))
     raw_lines = text.splitlines()
     show_name = raw_lines[0].strip() if raw_lines else path.parent.name
     title = raw_lines[1].strip() if len(raw_lines) > 1 else path.stem
@@ -178,7 +196,7 @@ def _parse_txt(path: Path) -> list[ParsedEpisode]:
 
 
 def _parse_json(path: Path) -> list[ParsedEpisode]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload = json.loads(_read_text(path))
     if isinstance(payload, list):
         payload = {
             "show_name": path.parent.name,
@@ -233,7 +251,7 @@ def _is_bilingual(first: str, second: str) -> bool:
 
 
 def _parse_srt(path: Path) -> list[ParsedEpisode]:
-    text = _clean_text(path.read_text(encoding="utf-8"))
+    text = _clean_text(_read_text(path))
     blocks = re.split(r"\n\s*\n", text)
     lines: list[ParsedLine] = []
     for block in blocks:
@@ -263,7 +281,7 @@ def _parse_srt(path: Path) -> list[ParsedEpisode]:
 
 
 def _parse_ass(path: Path) -> list[ParsedEpisode]:
-    text = _clean_text(path.read_text(encoding="utf-8"))
+    text = _clean_text(_read_text(path))
     lines: list[ParsedLine] = []
     for row in text.splitlines():
         if not row.startswith("Dialogue:"):
@@ -296,7 +314,7 @@ def _parse_ass(path: Path) -> list[ParsedEpisode]:
 
 
 def _parse_fountain(path: Path) -> list[ParsedEpisode]:
-    text = _clean_text(path.read_text(encoding="utf-8"))
+    text = _clean_text(_read_text(path))
     lines: list[ParsedLine] = []
     rows = text.splitlines()
     index = 0

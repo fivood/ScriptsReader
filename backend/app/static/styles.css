@@ -585,6 +585,33 @@ summary {
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--line-dim);
   font-size: 12px;
+  position: relative;
+  overflow: hidden;
+}
+
+.episode-delete-btn {
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 2px 5px;
+  font-size: 10px;
+  background: rgba(10, 10, 10, 0.85);
+  border: 1px solid rgba(255, 0, 0, 0.45);
+  color: var(--accent);
+  opacity: 0;
+  cursor: pointer;
+  font-family: var(--font-hud);
+  line-height: 1;
+  transition: opacity 120ms ease;
+}
+
+.episode-link:hover .episode-delete-btn {
+  opacity: 1;
+}
+
+.episode-delete-btn:hover {
+  background: rgba(255, 0, 0, 0.20);
 }
 
 .episode-link strong {
@@ -711,13 +738,47 @@ summary {
 }
 
 .speaker-tag {
-  padding: 6px 8px;
+  padding: 6px 6px 6px 8px;
   min-height: 32px;
   font-size: 11px;
   background: rgba(255, 0, 0, 0.10);
   border: 1px solid rgba(255, 0, 0, 0.25);
   color: var(--accent);
   text-shadow: 1px 1px 2px rgba(255, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+
+.speaker-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.speaker-edit-btn {
+  flex: 0 0 auto;
+  padding: 2px 4px;
+  font-size: 10px;
+  background: rgba(10, 10, 10, 0.85);
+  border: 1px solid rgba(255, 0, 0, 0.45);
+  color: var(--accent);
+  opacity: 0;
+  cursor: pointer;
+  font-family: var(--font-hud);
+  line-height: 1;
+  transition: opacity 120ms ease;
+}
+
+.dialogue-line:hover .speaker-edit-btn {
+  opacity: 1;
+}
+
+.speaker-edit-btn:hover {
+  background: rgba(255, 0, 0, 0.20);
 }
 
 .speaker-chip {

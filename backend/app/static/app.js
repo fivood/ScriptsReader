@@ -7,10 +7,11 @@ const state = {
   focusedLineIndex: null,
   annotations: { highlights: {}, notes: {} },
   catalogResults: [],
-  ollamaOnline: false,
-  ollamaModel: '',
-  ollamaSource: 'none',
-  ollamaEndpoint: '',
+  aiConfigured: false,
+  aiProvider: '',
+  aiModel: '',
+  aiApiKey: '',
+  aiBaseUrl: '',
   lineTranslations: {},
   translateAllActive: false,
   readingProgress: {},
@@ -20,7 +21,7 @@ const state = {
   collectionFilter: '',
 };
 
-const LOCAL_OLLAMA_BASE = 'http://127.0.0.1:11434';
+
 
 const elements = {
   libraryTree: document.getElementById('library-tree'),
@@ -29,6 +30,7 @@ const elements = {
   appVersion: document.getElementById('app-version'),
   rebuildLibrary: document.getElementById('rebuild-library'),
   manualImport: document.getElementById('manual-import'),
+  importsList: document.getElementById('imports-list'),
   downloadStatus: document.getElementById('download-status'),
   episodeTitle: document.getElementById('episode-title'),
   episodeMeta: document.getElementById('episode-meta'),
@@ -66,10 +68,12 @@ const elements = {
   themeToggle: document.getElementById('theme-toggle'),
   settingsOverlay: document.getElementById('settings-overlay'),
   closeSettings: document.getElementById('close-settings'),
-  sOllamaUrl: document.getElementById('s-ollama-url'),
-  sOllamaModel: document.getElementById('s-ollama-model'),
-  sOllamaRefresh: document.getElementById('s-ollama-refresh'),
-  sOllamaStatus: document.getElementById('s-ollama-status'),
+  sAiProvider: document.getElementById('s-ai-provider'),
+  sAiBaseUrl: document.getElementById('s-ai-base-url'),
+  sAiApiKey: document.getElementById('s-ai-api-key'),
+  sAiModel: document.getElementById('s-ai-model'),
+  sAiRefresh: document.getElementById('s-ai-refresh'),
+  sAiStatus: document.getElementById('s-ai-status'),
   sTransProvider: document.getElementById('s-trans-provider'),
   sBaiduAppid: document.getElementById('s-baidu-appid'),
   sBaiduSecret: document.getElementById('s-baidu-secret'),
@@ -99,15 +103,6 @@ async function request(url, options = {}) {
   if (!response.ok) {
     const text = await response.text();
     throw new Error(text || `Request failed: ${response.status}`);
-  }
-  return response.json();
-}
-
-async function requestLocalOllama(path, options = {}) {
-  const response = await fetch(`${LOCAL_OLLAMA_BASE}${path}`, options);
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || `Local Ollama request failed: ${response.status}`);
   }
   return response.json();
 }
@@ -313,6 +308,7 @@ function renderLibrary() {
                 <span>${episode.episode_code || 'EP'}</span>
                 <strong>${episode.title}</strong>
                 <small>${episode.line_count} 行</small>
+                <span class="episode-delete-btn" data-delete-episode="${episode.id}" title="删除剧集">✕</span>
               </button>
             `).join('')}
           </div>
@@ -322,7 +318,36 @@ function renderLibrary() {
   `).join('');
 
   document.querySelectorAll('[data-episode-id]').forEach(button => {
-    button.addEventListener('click', () => selectEpisode(Number(button.dataset.episodeId)));
+    button.addEventListener('click', e => {
+      if (e.target.closest('.episode-delete-btn')) return;
+      selectEpisode(Number(button.dataset.episodeId));
+    });
+  });
+  document.querySelectorAll('[data-delete-episode]').forEach(btn => {
+    btn.addEventListener('click', async e => {
+      e.stopPropagation();
+      const episodeId = Number(btn.dataset.deleteEpisode);
+      if (!await hudConfirm({ title: '删除确认', message: '确认删除该剧集？相关数据（收藏、进度、高亮、笔记）将一并清除。', confirmText: '删除' })) return;
+      try {
+        await request(`/api/library/episodes/${episodeId}`, { method: 'DELETE' });
+        if (state.selectedEpisodeId === episodeId) {
+          state.selectedEpisodeId = null;
+          state.currentEpisode = null;
+          elements.episodeTitle.textContent = '选择一集开始';
+          elements.episodeMeta.textContent = '';
+          elements.dialogueList.className = 'dialogue-list empty-state';
+          elements.dialogueList.textContent = '先从左侧导入或选择剧本。';
+          elements.speakerFilters.innerHTML = '<div class="empty-state">暂无角色</div>';
+          elements.speakerCount.textContent = '';
+          elements.trackSpeakerBtn.disabled = true;
+          elements.bulkSpeakerBtn.disabled = true;
+        }
+        await loadLibrary();
+        elements.downloadStatus.innerHTML = '<div class="status-item success">剧集已删除</div>';
+      } catch (error) {
+        elements.downloadStatus.innerHTML = `<div class="status-item warn">删除失败：${escapeHtml(String(error.message || error))}</div>`;
+      }
+    });
   });
 }
 
@@ -437,7 +462,11 @@ function renderDialogue() {
     const isSubtitle = line.speaker == null && line.translation;
     return `
       <article class="dialogue-line${focused} ${highlightColor ? `hl-${highlightColor}` : ''}${isSubtitle ? ' subtitle-line' : ''}" data-line-index="${line.line_index}">
-        <div class="speaker-tag ${speakerColor(speaker)}">${speaker}${isSubtitle ? '<span class="subtitle-badge">CC</span>' : ''}</div>
+        <div class="speaker-tag ${speakerColor(speaker)}">
+          <span class="speaker-name">${speaker}</span>
+          <button class="speaker-edit-btn" data-edit-speaker="${line.line_index}" title="修改角色名">✎</button>
+          ${isSubtitle ? '<span class="subtitle-badge">CC</span>' : ''}
+        </div>
         <div class="line-body">
           <p>${escapeHtml(line.text)}</p>
           ${inlineTranslation ? `<div class="inline-translation">${escapeHtml(inlineTranslation)}</div>` : ''}
@@ -482,6 +511,12 @@ function renderDialogue() {
       const lineIndex = Number(card.dataset.lineIndex);
       state.focusedLineIndex = lineIndex;
       saveReadingProgress(lineIndex);
+    });
+  });
+  document.querySelectorAll('[data-edit-speaker]').forEach(button => {
+    button.addEventListener('click', e => {
+      e.stopPropagation();
+      editSpeaker(Number(button.dataset.editSpeaker));
     });
   });
 }
@@ -760,6 +795,27 @@ async function editNote(lineIndex) {
   renderDialogue();
 }
 
+async function editSpeaker(lineIndex) {
+  if (!state.currentEpisode) return;
+  const line = state.currentEpisode.lines.find(l => l.line_index === lineIndex);
+  if (!line) return;
+  const current = line.speaker || '';
+  const name = await hudPrompt({ title: '修改角色名', label: '新角色名（留空表示无角色/NARRATION）', defaultValue: current });
+  if (name === null) return;
+  const newSpeaker = name.trim() || null;
+  try {
+    await request(`/api/library/episodes/${state.currentEpisode.id}/lines/bulk`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ updates: [{ line_index: lineIndex, speaker: newSpeaker }] }),
+    });
+    await selectEpisode(state.currentEpisode.id);
+    elements.downloadStatus.innerHTML = '<div class="status-item success">角色名已更新</div>';
+  } catch (error) {
+    elements.downloadStatus.innerHTML = `<div class="status-item warn">更新失败：${escapeHtml(String(error.message || error))}</div>`;
+  }
+}
+
 async function editEpisodeMeta() {
   if (!state.currentEpisode) return;
   const ep = state.currentEpisode;
@@ -878,12 +934,50 @@ async function rebuildLibrary() {
   }
 }
 
+async function loadImportsList() {
+  try {
+    const files = await request('/api/imports/files');
+    if (!files.length) {
+      elements.importsList.innerHTML = '<div class="status-item">暂无手动导入文件</div>';
+      return;
+    }
+    elements.importsList.innerHTML = files.map(f => {
+      const size = f.size < 1024 ? `${f.size} B` : f.size < 1048576 ? `${(f.size / 1024).toFixed(1)} KB` : `${(f.size / 1048576).toFixed(1)} MB`;
+      const date = new Date(f.modified_at * 1000).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      return `<div class="status-item" data-import-name="${escapeHtml(f.name)}">
+        <div class="job-head"><strong>${escapeHtml(f.name)}</strong><span class="muted">${size}</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
+          <small class="muted">${date}</small>
+          <button class="tiny-btn" data-delete-import="${escapeHtml(f.name)}">删除</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    document.querySelectorAll('[data-delete-import]').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!await hudConfirm({ title: '删除确认', message: `确认删除导入文件 "${btn.dataset.deleteImport}" 及其关联剧集？`, confirmText: '删除' })) return;
+        try {
+          await request(`/api/imports/files/${encodeURIComponent(btn.dataset.deleteImport)}`, { method: 'DELETE' });
+          await loadImportsList();
+          await loadLibrary();
+          elements.downloadStatus.innerHTML = '<div class="status-item success">文件已删除</div>';
+        } catch (error) {
+          elements.downloadStatus.innerHTML = `<div class="status-item warn">删除失败：${escapeHtml(String(error.message || error))}</div>`;
+        }
+      });
+    });
+  } catch {
+    elements.importsList.innerHTML = '';
+  }
+}
+
 async function uploadFiles(files) {
   if (!files.length) return;
   const formData = new FormData();
   for (const file of files) formData.append('files', file);
   const result = await request('/api/imports/files', { method: 'POST', body: formData });
   await loadLibrary();
+  await loadImportsList();
   elements.downloadStatus.innerHTML = `
     <div class="status-item success">导入 ${result.imported_files} 个文件，新增 ${result.imported_episodes} 集</div>
     ${result.skipped_files.map(item => `<div class="status-item warn">跳过：${item}</div>`).join('')}
@@ -1089,110 +1183,61 @@ async function startDownloadWithCheck(showName, params) {
   return true;
 }
 
-async function loadOllamaStatus() {
-  let localError = '';
-  try {
-    const localTags = await requestLocalOllama('/api/tags');
-    const localModels = Array.isArray(localTags.models) ? localTags.models : [];
-    state.ollamaOnline = true;
-    state.ollamaSource = 'local';
-    state.ollamaEndpoint = LOCAL_OLLAMA_BASE;
-    elements.ollamaStatus.textContent = localModels.length
-      ? `✓ 本机在线 · ${localModels.length} 模型`
-      : '⚠ 本机在线但无模型';
+async function loadAiStatus() {
+  const configured = state.aiConfigured && state.aiProvider && state.aiModel;
+  if (configured) {
+    elements.ollamaStatus.textContent = `✓ ${state.aiProvider} · ${state.aiModel}`;
     elements.ollamaStatus.className = 'muted ai-online';
-    elements.ollamaStatus.title = `endpoint: ${LOCAL_OLLAMA_BASE}`;
-    if (elements.sOllamaStatus) elements.sOllamaStatus.textContent = '当前来源：本机 Ollama';
-    await loadOllamaModels();
-    return;
-  } catch (error) {
-    localError = String(error.message || error);
-  }
-
-  try {
-    const h = await request('/api/ollama/health');
-    state.ollamaOnline = !!h.online;
-    state.ollamaSource = h.online ? 'server' : 'none';
-    state.ollamaEndpoint = h.online ? (h.base_url || '/api/ollama') : '';
-    if (h.online && h.models > 0) {
-      elements.ollamaStatus.textContent = `✓ 服务器在线 · ${h.models} 模型`;
-    } else if (h.online) {
-      elements.ollamaStatus.textContent = '⚠ 服务器在线但无模型';
-    } else {
-      elements.ollamaStatus.textContent = '✗ 离线';
-    }
-    elements.ollamaStatus.className = h.online ? 'muted ai-online' : 'muted ai-offline';
-    elements.ollamaStatus.title = h.error || `本机失败: ${localError}`;
-    if (elements.sOllamaStatus) {
-      elements.sOllamaStatus.textContent = h.online
-        ? '当前来源：服务器回退地址'
-        : '本机与服务器均不可用';
-    }
-    if (h.online) {
-      await loadOllamaModels();
-    } else {
-      elements.ollamaModel.innerHTML = '<option value="">Ollama 未连接</option>';
-      if (elements.sOllamaModel) elements.sOllamaModel.innerHTML = '<option value="">Ollama 未连接</option>';
-      if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = 'Ollama 未连接';
-      state.ollamaModel = '';
-      state.ollamaSource = 'none';
-      state.ollamaEndpoint = '';
-    }
-  } catch {
-    state.ollamaOnline = false;
-    state.ollamaSource = 'none';
-    state.ollamaEndpoint = '';
-    elements.ollamaStatus.textContent = '✗ 不可用';
+    elements.ollamaStatus.title = 'AI 已配置';
+    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = state.aiModel;
+  } else {
+    elements.ollamaStatus.textContent = '✗ 未配置 AI';
     elements.ollamaStatus.className = 'muted ai-offline';
-    elements.ollamaStatus.title = `本机失败: ${localError}；服务器代理也不可用`;
-    if (elements.sOllamaStatus) elements.sOllamaStatus.textContent = '本机与服务器均不可用';
-    elements.ollamaModel.innerHTML = '<option value="">Ollama 未连接</option>';
-    if (elements.sOllamaModel) elements.sOllamaModel.innerHTML = '<option value="">Ollama 未连接</option>';
-    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = 'Ollama 未连接';
-    state.ollamaModel = '';
+    elements.ollamaStatus.title = '请在设置中配置 AI 服务商、API Key 和模型';
+    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = '未配置';
   }
 }
 
-async function loadOllamaModels() {
+async function detectAiModels() {
+  if (!elements.sAiProvider || !elements.sAiApiKey) return;
+  const provider = elements.sAiProvider.value;
+  const apiKey = elements.sAiApiKey.value;
+  const baseUrl = elements.sAiBaseUrl?.value || '';
+  if (!provider) {
+    elements.sAiStatus.textContent = '请先选择服务商';
+    return;
+  }
+  if (!apiKey) {
+    elements.sAiStatus.textContent = '请先填写 API Key';
+    return;
+  }
+  elements.sAiStatus.textContent = '检测中…';
   try {
-    let models = [];
-    if (state.ollamaSource === 'local') {
-      const localData = await requestLocalOllama('/api/tags');
-      const localModels = Array.isArray(localData.models) ? localData.models : [];
-      models = localModels.map(item => ({ name: item.name }));
-    } else {
-      models = await request('/api/ollama/models');
-    }
+    const models = await request(`/api/ai/models?provider=${encodeURIComponent(provider)}&api_key=${encodeURIComponent(apiKey)}&base_url=${encodeURIComponent(baseUrl)}`);
     const opts = models.length
-      ? models.map(m => `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join('')
-      : '<option value="">无可用模型（请先 ollama pull）</option>';
+      ? models.map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)}</option>`).join('')
+      : '<option value="">无可用模型</option>';
+    elements.sAiModel.innerHTML = opts;
     elements.ollamaModel.innerHTML = opts;
-    if (elements.sOllamaModel) elements.sOllamaModel.innerHTML = opts;
     if (models.length) {
-      const current = state.ollamaModel;
-      const exists = models.some(m => m.name === current);
-      const selected = exists ? current : models[0].name;
-      state.ollamaModel = selected;
+      const current = state.aiModel;
+      const exists = models.some(m => m.id === current);
+      const selected = exists ? current : models[0].id;
+      elements.sAiModel.value = selected;
       elements.ollamaModel.value = selected;
-      if (elements.sOllamaModel) elements.sOllamaModel.value = selected;
       if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = selected;
-    } else {
-      state.ollamaModel = '';
-      if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = '无可用模型';
     }
-  } catch {
-    elements.ollamaModel.innerHTML = '<option value="">模型加载失败</option>';
-    if (elements.sOllamaModel) elements.sOllamaModel.innerHTML = '<option value="">模型加载失败</option>';
-    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = '模型加载失败';
-    state.ollamaModel = '';
+    elements.sAiStatus.textContent = `检测到 ${models.length} 个模型`;
+  } catch (error) {
+    elements.sAiStatus.textContent = `检测失败：${error.message || error}`;
   }
 }
 
 function getSelectedModel() {
-  return elements.sOllamaModel?.value || elements.ollamaModel.value || state.ollamaModel;
+  return elements.sAiModel?.value || elements.ollamaModel.value || state.aiModel;
 }
 
-function buildOllamaPrompt(task, targetLang = '中文') {
+function buildSystemPrompt(task, targetLang = '中文') {
   const prompts = {
     translate: `You are a professional translator. Translate the dialogue line to ${targetLang}. Output ONLY the translation, no explanation.`,
     analyze: 'You are a professional screenwriting teacher. Analyze this dialogue line in depth: what is the subtext, the dramatic tension, the character motivation, and why this line works dramatically. Answer in Chinese (简体中文), concise but insightful (3-5 bullet points).',
@@ -1205,64 +1250,20 @@ function buildOllamaPrompt(task, targetLang = '中文') {
   return prompts[task] || prompts.analyze;
 }
 
-async function localOllamaChat(model, task, content) {
-  const systemPrompt = buildOllamaPrompt(task, '中文');
-  try {
-    const resp = await requestLocalOllama('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content },
-        ],
-        stream: false,
-      }),
-    });
-    const text = String(resp?.message?.content || '').trim();
-    if (text) return { ok: true, reply: text };
-  } catch (error) {
-    // Fall through to generate API for compatibility.
-    if (!String(error.message || '').includes('404') && !String(error.message || '').includes('400')) {
-      throw error;
-    }
+async function aiChat(task, content) {
+  const provider = state.aiProvider;
+  const model = state.aiModel;
+  const apiKey = state.aiApiKey;
+  const baseUrl = state.aiBaseUrl;
+  if (!provider || !apiKey || !model) {
+    return { ok: false, error: 'AI 未配置，请先前往设置填写 API Key 并选择模型' };
   }
-
-  const prompt = `[System]\n${systemPrompt}\n\n[User]\n${content}`;
-  const fallback = await requestLocalOllama('/api/generate', {
+  const result = await request('/api/ai/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, prompt, stream: false }),
+    body: JSON.stringify({ provider, model, api_key: apiKey, base_url: baseUrl, task, content }),
   });
-  const text = String(fallback?.response || '').trim();
-  if (!text) throw new Error('本机 Ollama 返回空响应');
-  return { ok: true, reply: text };
-}
-
-async function ollamaChat(model, task, content) {
-  let localErr = '';
-  try {
-    const result = await localOllamaChat(model, task, content);
-    state.ollamaSource = 'local';
-    state.ollamaEndpoint = LOCAL_OLLAMA_BASE;
-    return result;
-  } catch (error) {
-    localErr = String(error.message || error);
-  }
-
-  const serverResult = await request('/api/ollama/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model, task, content }),
-  });
-  if (!serverResult.ok && localErr) {
-    return { ok: false, error: `本机失败: ${localErr}; 服务器返回: ${serverResult.error || '未知错误'}` };
-  }
-  if (serverResult.ok) {
-    state.ollamaSource = 'server';
-  }
-  return serverResult;
+  return result;
 }
 
 // ── Settings helpers ──────────────────────────────────────────────────────
@@ -1276,7 +1277,28 @@ function setBadge(el, configured) {
 async function loadSettings() {
   try {
     const data = await request('/api/settings');
-    if (elements.sOllamaUrl) elements.sOllamaUrl.value = data.ollama_base_url || '';
+    if (elements.sAiProvider) elements.sAiProvider.value = data.ai_provider || '';
+    if (elements.sAiBaseUrl) elements.sAiBaseUrl.value = data.ai_base_url || '';
+    if (elements.sAiApiKey) elements.sAiApiKey.value = '';
+    if (elements.sAiModel) {
+      elements.sAiModel.innerHTML = data.ai_model
+        ? `<option value="${escapeHtml(data.ai_model)}">${escapeHtml(data.ai_model)}</option>`
+        : '<option value="">点击 ⟳ 检测模型</option>';
+      elements.sAiModel.value = data.ai_model || '';
+    }
+    // Sync internal hidden select
+    if (elements.ollamaModel) {
+      elements.ollamaModel.innerHTML = data.ai_model
+        ? `<option value="${escapeHtml(data.ai_model)}">${escapeHtml(data.ai_model)}</option>`
+        : '<option value="">未配置</option>';
+      elements.ollamaModel.value = data.ai_model || '';
+    }
+    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = data.ai_model || '未配置';
+    // Update state
+    state.aiProvider = data.ai_provider || '';
+    state.aiBaseUrl = data.ai_base_url || '';
+    state.aiModel = data.ai_model || '';
+    state.aiConfigured = !!data.ai_configured;
   } catch {
     // silent fail — settings modal will still open
   }
@@ -1284,8 +1306,15 @@ async function loadSettings() {
 
 async function saveSettings() {
   const patch = {};
-  const ollUrl = elements.sOllamaUrl?.value.trim();
-  if (ollUrl) patch.ollama_base_url = ollUrl;
+  const provider = elements.sAiProvider?.value.trim();
+  const baseUrl = elements.sAiBaseUrl?.value.trim();
+  const apiKey = elements.sAiApiKey?.value.trim();
+  const model = elements.sAiModel?.value.trim();
+
+  if (provider !== undefined) patch.ai_provider = provider;
+  if (baseUrl !== undefined) patch.ai_base_url = baseUrl;
+  if (apiKey) patch.ai_api_key = apiKey;
+  if (model !== undefined) patch.ai_model = model;
 
   if (!Object.keys(patch).length) {
     elements.sSaveMsg.textContent = '没有要保存的变更';
@@ -1302,8 +1331,7 @@ async function saveSettings() {
     });
     elements.sSaveMsg.textContent = '✓ 已保存';
     await loadSettings();
-    // if URL changed, re-probe Ollama
-    if (patch.ollama_base_url) await loadOllamaStatus();
+    await loadAiStatus();
   } catch {
     elements.sSaveMsg.textContent = '✗ 保存失败';
   } finally {
@@ -1325,9 +1353,7 @@ function buildLineContext(lineIndex) {
 }
 
 async function aiLineTask(task, lineIndex) {
-  if (!state.ollamaOnline) { showAiResult('Ollama 未连接，请先启动 ollama serve。'); return; }
-  const model = getSelectedModel();
-  if (!model) { showAiResult('请先选择模型'); return; }
+  if (!state.aiConfigured) { showAiResult('AI 未配置，请先前往设置填写 API Key 并选择模型'); return; }
   const { line, context } = buildLineContext(lineIndex);
   if (!line) return;
 
@@ -1335,7 +1361,7 @@ async function aiLineTask(task, lineIndex) {
   showAiResult(`正在${taskLabels[task] || task}…`);
 
   try {
-    const result = await ollamaChat(model, task, context);
+    const result = await aiChat(task, context);
     if (result.ok) {
       showAiResult(
         `<div class="ai-result-header">${escapeHtml(taskLabels[task] || task)}</div>` +
@@ -1351,9 +1377,7 @@ async function aiLineTask(task, lineIndex) {
 }
 
 async function aiEpisodeTask(task) {
-  if (!state.ollamaOnline) { showAiResult('Ollama 未连接，请先启动 ollama serve。'); return; }
-  const model = getSelectedModel();
-  if (!model) { showAiResult('请先选择模型'); return; }
+  if (!state.aiConfigured) { showAiResult('AI 未配置，请先前往设置填写 API Key 并选择模型'); return; }
   if (!state.currentEpisode) { showAiResult('请先选择一集'); return; }
 
   const taskLabels = { summary: '本集摘要', profile: '角色画像' };
@@ -1376,7 +1400,7 @@ async function aiEpisodeTask(task) {
   }
 
   try {
-    const result = await ollamaChat(model, task, content);
+    const result = await aiChat(task, content);
     if (result.ok) {
       showAiResult(
         `<div class="ai-result-header">${escapeHtml(taskLabels[task] || task)}</div>` +
@@ -1600,9 +1624,9 @@ function wireEvents() {
   });
   elements.ollamaRefreshModels.addEventListener('click', () => elements.openSettings.click());
   elements.ollamaModel.addEventListener('change', () => {
-    state.ollamaModel = elements.ollamaModel.value;
+    state.aiModel = elements.ollamaModel.value;
     if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = elements.ollamaModel.value || '未选择模型';
-    if (elements.sOllamaModel) elements.sOllamaModel.value = elements.ollamaModel.value;
+    if (elements.sAiModel) elements.sAiModel.value = elements.ollamaModel.value;
   });
   if (elements.themeToggle) {
     elements.themeToggle.addEventListener('click', toggleTheme);
@@ -1610,11 +1634,6 @@ function wireEvents() {
   // ── Settings modal ──
   elements.openSettings.addEventListener('click', async () => {
     await loadSettings();
-    // sync model list into modal select
-    if (elements.sOllamaModel && elements.ollamaModel) {
-      elements.sOllamaModel.innerHTML = elements.ollamaModel.innerHTML;
-      elements.sOllamaModel.value = state.ollamaModel;
-    }
     elements.settingsOverlay.hidden = false;
   });
   elements.closeSettings.addEventListener('click', () => {
@@ -1626,20 +1645,18 @@ function wireEvents() {
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape' && !elements.settingsOverlay.hidden) elements.settingsOverlay.hidden = true;
   });
-  elements.sOllamaRefresh.addEventListener('click', async () => {
-    elements.sOllamaStatus.textContent = '刷新中…';
-    await loadOllamaStatus();
-    if (elements.sOllamaModel && elements.ollamaModel) {
-      elements.sOllamaModel.innerHTML = elements.ollamaModel.innerHTML;
-      elements.sOllamaModel.value = state.ollamaModel;
-    }
-    elements.sOllamaStatus.textContent = state.ollamaOnline ? '已连接' : '未连接';
-  });
-  elements.sOllamaModel.addEventListener('change', () => {
-    state.ollamaModel = elements.sOllamaModel.value;
-    elements.ollamaModel.value = elements.sOllamaModel.value;
-    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = elements.sOllamaModel.value || '未选择模型';
-  });
+  if (elements.sAiRefresh) {
+    elements.sAiRefresh.addEventListener('click', async () => {
+      await detectAiModels();
+    });
+  }
+  if (elements.sAiModel) {
+    elements.sAiModel.addEventListener('change', () => {
+      state.aiModel = elements.sAiModel.value;
+      elements.ollamaModel.value = elements.sAiModel.value;
+      if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = elements.sAiModel.value || '未选择模型';
+    });
+  }
   elements.sSave.addEventListener('click', saveSettings);
   document.querySelectorAll('[data-ai-task]').forEach(btn => {
     btn.addEventListener('click', () => aiEpisodeTask(btn.dataset.aiTask));
@@ -1654,7 +1671,8 @@ async function bootstrap() {
   await loadLibrary();
   await loadCollections();
   await loadDownloadJobs();
-  await loadOllamaStatus();
+  await loadImportsList();
+  await loadAiStatus();
   window.setInterval(loadDownloadJobs, 2500);
 }
 

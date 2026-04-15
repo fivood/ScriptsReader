@@ -11,7 +11,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from .config import AUTH_TOKEN, STATIC_DIR, get_version
 from .database import init_db
-from .routers import annotations, catalog, collections, downloads, imports, ollama, scripts, search, settings, translate
+from .routers import ai, annotations, catalog, collections, downloads, imports, scripts, search, settings, translate
 from .services.library import rebuild_library
 
 
@@ -70,7 +70,7 @@ app.include_router(search.router)
 app.include_router(translate.router)
 app.include_router(annotations.router)
 app.include_router(catalog.router)
-app.include_router(ollama.router)
+app.include_router(ai.router)
 app.include_router(collections.router)
 app.include_router(settings.router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
@@ -79,7 +79,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 @app.on_event("startup")
 def on_startup() -> None:
     init_db()
-    rebuild_library()
+    # rebuild_library()  # 开发阶段避免重启清空用户数据；保留手动"重建索引"入口
 
 
 @app.get("/api/health")
