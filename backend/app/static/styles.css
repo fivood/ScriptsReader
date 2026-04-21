@@ -722,7 +722,7 @@ summary {
 
 .dialogue-line {
   display: grid;
-  grid-template-columns: 90px 1fr;
+  grid-template-columns: 130px 1fr;
   gap: 10px;
 }
 
@@ -1625,6 +1625,59 @@ summary {
   color: var(--text-muted);
   font-family: var(--font-mono);
   letter-spacing: 0.04em;
+}
+
+.guest-btn {
+  width: 100%;
+  padding: 10px;
+  font-family: var(--font-hud);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--line-dim);
+  transition: all 140ms ease;
+}
+
+.guest-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+  box-shadow: var(--glow-red-sm);
+}
+
+.guest-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 18px;
+  background: var(--bg-panel-solid);
+  border-bottom: 1px solid var(--accent);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+
+.guest-banner .ghost-btn {
+  padding: 4px 10px;
+  font-size: 11px;
+  border: 1px solid var(--line-dim);
+  color: var(--text-muted);
+}
+
+.guest-banner .ghost-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+body:has(.guest-banner:not([hidden])) .app-shell {
+  padding-top: 46px;
 }
 
 /* ── Tablet (<1100px) ──────────────────────────── */

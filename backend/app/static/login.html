@@ -21,10 +21,19 @@
       <input id="token" type="password" name="token" placeholder="••••••••" autofocus required>
     </div>
     <button type="submit" class="login-btn">Authenticate</button>
+    <div style="margin-top:14px;text-align:center;">
+      <button type="button" class="ghost-btn guest-btn" onclick="enterGuestMode()">👤 访客浏览（仅阅读）</button>
+    </div>
     <div class="login-footer">
       <span>CAN YOU HEAR ME</span>
       <span>#root</span>
     </div>
   </form>
+  <script>
+    function enterGuestMode() {
+      localStorage.setItem('scriptsreader-guest', '1');
+      window.location.href = '/guest-login';
+    }
+  </script>
 </body>
 </html>

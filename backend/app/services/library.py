@@ -108,11 +108,6 @@ def _iter_source_files() -> list[Path]:
         source_dirs.append(src)
 
     files: list[Path] = []
-    # Also pick up loose files placed directly in the workspace root
-    if WORKSPACE_ROOT.exists():
-        for child in WORKSPACE_ROOT.iterdir():
-            if child.is_file() and child.suffix.lower() in SUPPORTED_IMPORT_EXTENSIONS:
-                files.append(child)
 
     for source_dir in source_dirs:
         if not source_dir.exists():

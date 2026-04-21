@@ -20,7 +20,7 @@ from .services.library import rebuild_library
 class TokenAuthMiddleware(BaseHTTPMiddleware):
     """If SR_AUTH_TOKEN is set, require ?token= or Authorization header."""
 
-    OPEN_PATHS = {"/api/health", "/api/version", "/login"}
+    OPEN_PATHS = {"/api/health", "/api/version", "/login", "/guest-login"}
 
     async def dispatch(self, request: Request, call_next):
         if not AUTH_TOKEN:
@@ -44,6 +44,11 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
             token = request.cookies.get("sr_token", "")
 
         if token == AUTH_TOKEN:
+            return await call_next(request)
+
+        # Guest mode: allow read-only requests
+        is_guest = request.cookies.get("sr_guest", "") == "1"
+        if is_guest and request.method in ("GET", "HEAD"):
             return await call_next(request)
 
         # For HTML page request, redirect to login
@@ -107,6 +112,14 @@ async def login_verify(request: Request):
         resp.set_cookie("sr_token", token, httponly=True, samesite="lax", max_age=86400 * 30)
         return resp
     return FileResponse(STATIC_DIR / "login.html", media_type="text/html")
+
+
+@app.get("/guest-login")
+def guest_login() -> RedirectResponse:
+    """Enter guest mode: allow read-only browsing without a token."""
+    resp = RedirectResponse("/", status_code=303)
+    resp.set_cookie("sr_guest", "1", httponly=False, samesite="lax", max_age=86400 * 30)
+    return resp
 
 
 @app.get("/")
