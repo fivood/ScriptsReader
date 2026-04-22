@@ -177,5 +177,5 @@ def _reload_config() -> None:
         config.AI_BASE_URL = os.environ.get("AI_BASE_URL", "").strip()
         config.AI_API_KEY = os.environ.get("AI_API_KEY", "").strip()
         config.AI_MODEL = os.environ.get("AI_MODEL", "").strip()
-    except Exception:
+    except Exception:  # nosec B110
         pass

@@ -189,7 +189,7 @@ def _scrape_springfield(
             save_callback(entries)
 
         page += 1
-        time.sleep(random.uniform(0.5, 1.0))
+        time.sleep(random.uniform(0.5, 1.0))  # nosec B311
 
     _progress = f"Springfield 完成，共 {len(entries)} 部剧"
     return entries
@@ -203,7 +203,7 @@ def load_catalog() -> dict:
         data = json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
         if isinstance(data, dict) and "entries" in data:
             return data
-    except Exception:
+    except Exception:  # nosec B110
         pass
     return {"updated_at": None, "entries": []}
 

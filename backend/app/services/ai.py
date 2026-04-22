@@ -106,7 +106,7 @@ async def list_models(provider: str, api_key: str, base_url: str | None = None) 
             remote_models = data.get("data", [])
             if remote_models:
                 return [{"id": m.get("id", m.get("name", "")), "name": m.get("id", m.get("name", ""))} for m in remote_models]
-    except Exception:
+    except Exception:  # nosec B110
         pass
 
     preset = _PROVIDERS.get(provider, _PROVIDERS["custom"])

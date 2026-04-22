@@ -32,9 +32,9 @@ async def translate_baidu(text: str, app_id: str, secret_key: str, target_lang: 
     """百度翻译 API (https://fanyi-api.baidu.com)"""
     # 百度使用 zh 表示简体中文
     to_lang = "zh" if target_lang.upper().startswith("ZH") else target_lang.lower()
-    salt = str(random.randint(10000, 99999))
+    salt = str(random.randint(10000, 99999))  # nosec B311
     sign_raw = app_id + text + salt + secret_key
-    sign = hashlib.md5(sign_raw.encode("utf-8")).hexdigest()
+    sign = hashlib.md5(sign_raw.encode("utf-8"), usedforsecurity=False).hexdigest()
 
     async with httpx.AsyncClient(timeout=20) as client:
         resp = await client.get(

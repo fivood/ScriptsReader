@@ -191,7 +191,7 @@ def delete_imported_file(filename: str) -> int:
 
         if episode_ids:
             placeholders = ",".join("?" for _ in episode_ids)
-            conn.execute(f"DELETE FROM episodes WHERE id IN ({placeholders})", tuple(episode_ids))
+            conn.execute(f"DELETE FROM episodes WHERE id IN ({placeholders})", tuple(episode_ids))  # nosec B608
 
     file_path.unlink()
     return len(episode_ids)

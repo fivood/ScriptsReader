@@ -56,6 +56,6 @@ def get_version() -> str:
             content = VERSION_FILE.read_text(encoding="utf-8").strip()
             if content:
                 return content
-        except Exception:
+        except Exception:  # nosec B110
             pass
     return os.getenv("APP_VERSION", "0.1.0").strip()

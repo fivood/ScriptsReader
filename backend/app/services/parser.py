@@ -38,7 +38,7 @@ def _read_text(path: Path) -> str:
         raw = path.read_bytes()
         if raw.startswith(b'\xff\xfe') or raw.startswith(b'\xfe\xff'):
             return raw.decode("utf-16")
-    except Exception:
+    except Exception:  # nosec B110
         pass
     for enc in ("utf-8", "utf-8-sig", "gbk", "gb2312", "gb18030", "latin-1"):
         try:

@@ -96,7 +96,7 @@ def start_download(payload: DownloadStartRequest) -> dict:
     job_id = f"{target}-{_timestamp()}"
     log_path = DOWNLOAD_LOG_DIR / f"{job_id}.log"
     log_file = log_path.open("w", encoding="utf-8")
-    process = subprocess.Popen(
+    process = subprocess.Popen(  # nosec B603
         command,
         cwd=str(WORKSPACE_ROOT),
         stdout=log_file,
@@ -261,7 +261,7 @@ def cancel_download(job_id: str) -> dict:
         try:
             proc.kill()
             proc.wait(timeout=5)
-        except Exception:
+        except Exception:  # nosec B110
             pass
 
     state.exit_code = state.exit_code if state.exit_code is not None else -15
