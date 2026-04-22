@@ -580,7 +580,7 @@ function checkGuestMode() {
 function exitGuestMode() {
   localStorage.removeItem('scriptsreader-guest');
   document.cookie = 'sr_guest=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-  window.location.reload();
+  window.location.href = '/login';
 }
 
 function applyGuestRestrictions() {
