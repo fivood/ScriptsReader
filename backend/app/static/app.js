@@ -590,7 +590,7 @@ function applyGuestRestrictions() {
   if (elements.guestExit) {
     elements.guestExit.addEventListener('click', exitGuestMode);
   }
-  // Hide upload / download / rebuild controls
+  // Hide upload / download / rebuild / translate / AI / collection controls
   const hideSelectors = [
     '#rebuild-library',
     '#manual-import',
@@ -604,6 +604,17 @@ function applyGuestRestrictions() {
     '#fd-index-url',
     '#fd-show-name',
     '#adv-springfield-slug',
+    '#translate-all-btn',
+    '.ai-action-btn',
+    '#ollama-refresh-models',
+    '#collection-create',
+    '#collection-delete',
+    '#collection-export-md',
+    '#collection-export-json',
+    '#track-speaker-btn',
+    '#open-settings',
+    '#download-status',
+    '.exports-row',
   ];
   // Also hide labels that belong to hidden inputs
   document.querySelectorAll('label[for="catalog-search"], label[for="manual-import"]').forEach(el => { if (el) el.style.display = 'none'; });
@@ -619,6 +630,7 @@ function applyGuestRestrictions() {
   // Hide edit-related buttons (they are toggled dynamically, handled in render functions)
   if (elements.editEpisodeMetaBtn) elements.editEpisodeMetaBtn.style.display = 'none';
   if (elements.bulkSpeakerBtn) elements.bulkSpeakerBtn.style.display = 'none';
+  if (elements.openSettings) elements.openSettings.style.display = 'none';
 }
 
 // ── Guest localStorage helpers ──────────────────────────────────────────

@@ -8,6 +8,43 @@
 </head>
 <body class="login-page">
   <div class="login-scan"></div>
+  <div class="hud-crosshair" aria-hidden="true">
+    <div class="hud-outer-frame">
+      <div class="hud-corner hud-corner-tl"></div>
+      <div class="hud-corner hud-corner-tr"></div>
+      <div class="hud-corner hud-corner-bl"></div>
+      <div class="hud-corner hud-corner-br"></div>
+      <div class="hud-label-top">SNIPER RADICAL / 14</div>
+    </div>
+    <div class="hud-inner-reticle">
+      <div class="hud-inner-corner hud-inner-tl"></div>
+      <div class="hud-inner-corner hud-inner-tr"></div>
+      <div class="hud-inner-corner hud-inner-bl"></div>
+      <div class="hud-inner-corner hud-inner-br"></div>
+      <div class="hud-cross-x"></div>
+      <div class="hud-cross-y"></div>
+      <div class="hud-reticle-center"></div>
+      <div class="hud-num hud-num-1">15</div>
+      <div class="hud-num hud-num-2">75</div>
+      <div class="hud-num hud-num-3">45</div>
+      <div class="hud-num hud-num-4">05</div>
+    </div>
+    <div class="hud-axis hud-axis-x"></div>
+    <div class="hud-axis hud-axis-y"></div>
+    <div class="hud-side-mark hud-side-left">
+      <span class="hud-side-x">X3</span>
+      <span class="hud-side-val">86.3</span>
+      <span class="hud-side-val2">8164</span>
+    </div>
+    <div class="hud-side-mark hud-side-right">
+      <span class="hud-side-x">X4</span>
+      <span class="hud-side-val">90.8</span>
+      <span class="hud-side-val2">7918</span>
+    </div>
+    <div class="hud-scan-bar"></div>
+    <div class="hud-random-target"></div>
+    <div class="hud-random-dot"></div>
+  </div>
   <form class="login-card" method="POST" action="/login">
     <div class="login-header">
       <span class="rec-dot"></span>
@@ -23,6 +60,7 @@
     <button type="submit" class="login-btn">Authenticate</button>
     <div style="margin-top:14px;text-align:center;">
       <button type="button" class="ghost-btn guest-btn" onclick="enterGuestMode()">YOU ARE BEING WATCHED</button>
+    </div>
     <div class="login-footer">
       <span>CAN YOU HEAR ME</span>
       <span>#root</span>
