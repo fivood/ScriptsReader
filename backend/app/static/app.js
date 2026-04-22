@@ -20,6 +20,7 @@ const state = {
   selectedCollectionId: null,
   collectionFilter: '',
   isGuest: false,
+  libraryFilterLetter: null,
 };
 
 
@@ -99,10 +100,11 @@ const elements = {
   collectionItems: document.getElementById('collection-items'),
   guestBanner: document.getElementById('guest-banner'),
   guestExit: document.getElementById('guest-exit'),
+  libraryAlphaNav: document.getElementById('library-alpha-nav'),
 };
 
 async function request(url, options = {}) {
-  const response = await fetch(url, options);
+  const response = await fetch(url, { ...options, credentials: 'same-origin' });
   if (!response.ok) {
     const text = await response.text();
     throw new Error(text || `Request failed: ${response.status}`);
@@ -273,8 +275,41 @@ function showExists(name) {
   return state.library.some(show => show.name.toLowerCase() === lowerName);
 }
 
+function getShowFirstLetter(name) {
+  const first = name.trim().charAt(0).toUpperCase();
+  return /^[A-Z]$/.test(first) ? first : '#';
+}
+
+function renderAlphaNav() {
+  if (!elements.libraryAlphaNav) return;
+  const letters = new Set();
+  state.library.forEach(show => letters.add(getShowFirstLetter(show.name)));
+  const sorted = Array.from(letters).sort();
+
+  const items = sorted.map(letter => {
+    const active = state.libraryFilterLetter === letter ? ' active' : '';
+    return `<button class="alpha-btn${active}" data-alpha="${letter}">${letter}</button>`;
+  });
+
+  const allActive = state.libraryFilterLetter === null ? ' active' : '';
+  items.unshift(`<button class="alpha-btn${allActive}" data-alpha="ALL">全部</button>`);
+
+  elements.libraryAlphaNav.innerHTML = items.join('');
+
+  document.querySelectorAll('[data-alpha]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const val = btn.dataset.alpha;
+      state.libraryFilterLetter = val === 'ALL' ? null : val;
+      renderAlphaNav();
+      renderLibrary();
+    });
+  });
+}
+
 function renderLibrary() {
   const keyword = elements.librarySearch.value.trim().toLowerCase();
+  const letterFilter = state.libraryFilterLetter;
+
   const filteredShows = state.library
     .map(show => ({
       ...show,
@@ -288,7 +323,11 @@ function renderLibrary() {
         }))
         .filter(season => season.episodes.length > 0),
     }))
-    .filter(show => show.seasons.length > 0);
+    .filter(show => {
+      if (show.seasons.length === 0) return false;
+      if (letterFilter && getShowFirstLetter(show.name) !== letterFilter) return false;
+      return true;
+    });
 
   const totalEpisodes = filteredShows.reduce((sum, show) => sum + show.seasons.reduce((acc, season) => acc + season.episodes.length, 0), 0);
   elements.libraryCount.textContent = `${filteredShows.length} 部剧 / ${totalEpisodes} 集`;
@@ -949,15 +988,16 @@ async function selectEpisode(episodeId) {
   state.selectedEpisodeId = episodeId;
   const speakerQuery = state.selectedSpeakers.size ? `?speakers=${encodeURIComponent([...state.selectedSpeakers].join(','))}` : '';
   state.currentEpisode = await request(`/api/library/episodes/${episodeId}${speakerQuery}`);
+  let progress;
   if (state.isGuest) {
     const allAnnotations = guestLoadAnnotations();
     state.annotations = allAnnotations[episodeId] || { highlights: {}, notes: {} };
     const progressMap = guestLoadProgress();
-    const progress = progressMap[episodeId] || { episode_id: episodeId, last_line: 0, status: 'unread' };
+    progress = progressMap[episodeId] || { episode_id: episodeId, last_line: 0, status: 'unread' };
     state.readingProgress[episodeId] = progress;
   } else {
     state.annotations = await request(`/api/annotations/episodes/${episodeId}`);
-    const progress = await request(`/api/library/progress/${episodeId}`);
+    progress = await request(`/api/library/progress/${episodeId}`);
     state.readingProgress[episodeId] = progress;
   }
   state.focusedLineIndex = progress.last_line || null;
@@ -1213,6 +1253,7 @@ async function loadLibrary() {
       }
     }
   }
+  renderAlphaNav();
   renderLibrary();
 }
 
