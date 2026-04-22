@@ -112,7 +112,7 @@ async function request(url, options = {}) {
   return response.json();
 }
 
-// ── HUD Modal System（替换系统 prompt / confirm）──────────────────────────
+// ── HUD Modal System (replaces native prompt / confirm) ──────────────────
 
 let _hudModalResolve = null;
 
@@ -124,7 +124,7 @@ function _hudModalClose() {
   document.getElementById('hud-modal-confirm').style.display = '';
 }
 
-function _hudModalOpen({ title, bodyHtml, confirmText = '确认', showConfirm = true, showCancel = true, cancelText = '取消' }) {
+function _hudModalOpen({ title, bodyHtml, confirmText = 'Confirm', showConfirm = true, showCancel = true, cancelText = 'Cancel' }) {
   document.getElementById('hud-modal-title').textContent = title;
   document.getElementById('hud-modal-body').innerHTML = bodyHtml;
   const confirmBtn = document.getElementById('hud-modal-confirm');
@@ -139,7 +139,7 @@ function _hudModalOpen({ title, bodyHtml, confirmText = '确认', showConfirm = 
 }
 
 /**
- * 单行/多行文本输入弹窗，返回 string 或 null（取消）。
+ * Single/multi-line text input modal, returns string or null (cancelled).
  */
 function hudPrompt({ title, label, defaultValue = '', placeholder = '', textarea = false }) {
   return new Promise(resolve => {
@@ -168,9 +168,9 @@ function hudPrompt({ title, label, defaultValue = '', placeholder = '', textarea
 }
 
 /**
- * 确认/取消弹窗，返回 true/false。
+ * Confirm/cancel modal, returns true/false.
  */
-function hudConfirm({ title, message, confirmText = '确认' }) {
+function hudConfirm({ title, message, confirmText = 'Confirm' }) {
   return new Promise(resolve => {
     _hudModalResolve = () => resolve(false);
     _hudModalOpen({
@@ -187,18 +187,18 @@ function hudConfirm({ title, message, confirmText = '确认' }) {
 }
 
 /**
- * 收藏台词专用表单（标签 + 备注），返回 { tags, note } 或 null。
+ * Collection form (tags + note), returns { tags, note } or null.
  */
 function hudCollectForm() {
   return new Promise(resolve => {
     _hudModalResolve = () => resolve(null);
     _hudModalOpen({
-      title: '收藏台词',
+      title: 'Collect Line',
       bodyHtml: `
-        <label class="settings-label">标签（逗号分隔，可留空）</label>
-        <input id="hud-tags" type="text" placeholder="励志, 幽默, Reese…">
-        <label class="settings-label" style="margin-top:8px">备注（可留空）</label>
-        <textarea id="hud-note" class="hud-modal-textarea" rows="2" placeholder="分析或摘录原因…"></textarea>
+        <label class="settings-label">Tags (comma-separated, optional)</label>
+        <input id="hud-tags" type="text" placeholder="inspiring, humorous, Reese…">
+        <label class="settings-label" style="margin-top:8px">Note (optional)</label>
+        <textarea id="hud-note" class="hud-modal-textarea" rows="2" placeholder="Analysis or excerpt reason…"></textarea>
       `,
     });
     document.getElementById('hud-modal-confirm').onclick = () => {
@@ -212,7 +212,7 @@ function hudCollectForm() {
 }
 
 /**
- * 高亮颜色选择弹窗，返回颜色字符串（空串=清除）或 null（取消）。
+ * Highlight color picker, returns color string (empty=clear) or null (cancelled).
  */
 function hudColorPicker({ currentColor = '' } = {}) {
   return new Promise(resolve => {
@@ -228,8 +228,8 @@ function hudColorPicker({ currentColor = '' } = {}) {
       `<button class="hud-color-btn${currentColor === c.value ? ' active' : ''}" data-color="${c.value}" style="background:${c.bg};">${c.label}</button>`
     ).join('');
     _hudModalOpen({
-      title: '高亮颜色',
-      bodyHtml: `<div class="hud-color-grid">${btns}</div><button class="hud-color-clear-btn" data-color="">✕  清除高亮</button>`,
+      title: 'Highlight Color',
+      bodyHtml: `<div class="hud-color-grid">${btns}</div><button class="hud-color-clear-btn" data-color="">✕  Clear Highlight</button>`,
       showConfirm: false,
       showCancel: true,
     });
@@ -292,7 +292,7 @@ function renderAlphaNav() {
   });
 
   const allActive = state.libraryFilterLetter === null ? ' active' : '';
-  items.unshift(`<button class="alpha-btn${allActive}" data-alpha="ALL">全部</button>`);
+  items.unshift(`<button class="alpha-btn${allActive}" data-alpha="ALL">All</button>`);
 
   elements.libraryAlphaNav.innerHTML = items.join('');
 
@@ -330,10 +330,10 @@ function renderLibrary() {
     });
 
   const totalEpisodes = filteredShows.reduce((sum, show) => sum + show.seasons.reduce((acc, season) => acc + season.episodes.length, 0), 0);
-  elements.libraryCount.textContent = `${filteredShows.length} 部剧 / ${totalEpisodes} 集`;
+  elements.libraryCount.textContent = `${filteredShows.length} shows / ${totalEpisodes} eps`;
 
   if (!filteredShows.length) {
-    elements.libraryTree.innerHTML = '<div class="empty-state">没有匹配结果</div>';
+    elements.libraryTree.innerHTML = '<div class="empty-state">No matches</div>';
     return;
   }
 
@@ -349,8 +349,8 @@ function renderLibrary() {
                 <span class="reading-dot ${episode.reading_status || 'unread'}" title="${episode.reading_status || 'unread'}"></span>
                 <span>${episode.episode_code || 'EP'}</span>
                 <strong>${episode.title}</strong>
-                <small>${episode.line_count} 行</small>
-                ${state.isGuest ? '' : `<span class="episode-delete-btn" data-delete-episode="${episode.id}" title="删除剧集">✕</span>`}
+                <small>${episode.line_count} lines</small>
+                ${state.isGuest ? '' : `<span class="episode-delete-btn" data-delete-episode="${episode.id}" title="Delete Episode">✕</span>`}
               </button>
             `).join('')}
           </div>
@@ -369,25 +369,25 @@ function renderLibrary() {
     btn.addEventListener('click', async e => {
       e.stopPropagation();
       const episodeId = Number(btn.dataset.deleteEpisode);
-      if (!await hudConfirm({ title: '删除确认', message: '确认删除该剧集？相关数据（收藏、进度、高亮、笔记）将一并清除。', confirmText: '删除' })) return;
+      if (!await hudConfirm({ title: 'Delete Confirmation', message: 'Delete this episode? Related data (collections, progress, highlights, notes) will also be removed.', confirmText: 'Delete' })) return;
       try {
         await request(`/api/library/episodes/${episodeId}`, { method: 'DELETE' });
         if (state.selectedEpisodeId === episodeId) {
           state.selectedEpisodeId = null;
           state.currentEpisode = null;
-          elements.episodeTitle.textContent = '选择一集开始';
+          elements.episodeTitle.textContent = 'Select an episode to start';
           elements.episodeMeta.textContent = '';
           elements.dialogueList.className = 'dialogue-list empty-state';
-          elements.dialogueList.textContent = '先从左侧导入或选择剧本。';
-          elements.speakerFilters.innerHTML = '<div class="empty-state">暂无角色</div>';
+          elements.dialogueList.textContent = 'Import or select a script from the left.';
+          elements.speakerFilters.innerHTML = '<div class="empty-state">No speakers yet</div>';
           elements.speakerCount.textContent = '';
           elements.trackSpeakerBtn.disabled = true;
           elements.bulkSpeakerBtn.disabled = true;
         }
         await loadLibrary();
-        elements.downloadStatus.innerHTML = '<div class="status-item success">剧集已删除</div>';
+        elements.downloadStatus.innerHTML = '<div class="status-item success">Episode deleted</div>';
       } catch (error) {
-        elements.downloadStatus.innerHTML = `<div class="status-item warn">删除失败：${escapeHtml(String(error.message || error))}</div>`;
+        elements.downloadStatus.innerHTML = `<div class="status-item warn">Delete failed: ${escapeHtml(String(error.message || error))}</div>`;
       }
     });
   });
@@ -406,10 +406,10 @@ function filteredLines() {
 
 function renderSpeakers() {
   const speakers = state.currentEpisode?.speakers || [];
-  elements.speakerCount.textContent = `${speakers.length} 位角色`;
+  elements.speakerCount.textContent = `${speakers.length} speakers`;
 
   if (!speakers.length) {
-    elements.speakerFilters.innerHTML = '<div class="empty-state">暂无角色</div>';
+    elements.speakerFilters.innerHTML = '<div class="empty-state">No speakers yet</div>';
     return;
   }
 
@@ -446,14 +446,14 @@ function renderSpeakers() {
 async function runSpeakerTimeline() {
   if (state.selectedSpeakers.size !== 1) {
     elements.speakerTrackResults.className = 'search-results empty-state';
-    elements.speakerTrackResults.textContent = '请先选择 1 个角色。';
+    elements.speakerTrackResults.textContent = 'Please select 1 speaker first.';
     return;
   }
   const speaker = [...state.selectedSpeakers][0];
   const result = await request(`/api/search/speaker/${encodeURIComponent(speaker)}?limit=500`);
   if (!result.items.length) {
     elements.speakerTrackResults.className = 'search-results empty-state';
-    elements.speakerTrackResults.textContent = `未找到 ${speaker} 的跨集台词。`;
+    elements.speakerTrackResults.textContent = `Not found: ${speaker} cross-episode lines.`;
     return;
   }
 
@@ -475,11 +475,11 @@ async function runSpeakerTimeline() {
 
 function renderDialogue() {
   const lines = filteredLines();
-  elements.lineCount.textContent = `${lines.length} 行`;
+  elements.lineCount.textContent = `${lines.length} lines`;
 
   if (!lines.length) {
     elements.dialogueList.className = 'dialogue-list empty-state';
-    elements.dialogueList.textContent = '当前过滤条件下没有对白。';
+    elements.dialogueList.textContent = 'No dialogue matches current filter.';
     return;
   }
 
@@ -506,19 +506,19 @@ function renderDialogue() {
       <article class="dialogue-line${focused} ${highlightColor ? `hl-${highlightColor}` : ''}${isSubtitle ? ' subtitle-line' : ''}" data-line-index="${line.line_index}">
         <div class="speaker-tag ${speakerColor(speaker)}">
           <span class="speaker-name">${speaker}</span>
-          ${state.isGuest ? '' : `<button class="speaker-edit-btn" data-edit-speaker="${line.line_index}" title="修改角色名">✎</button>`}
+          ${state.isGuest ? '' : `<button class="speaker-edit-btn" data-edit-speaker="${line.line_index}" title="Edit Speaker">✎</button>`}
         </div>
         <div class="line-body">
           <p>${escapeHtml(line.text)}</p>
           ${inlineTranslation ? `<div class="inline-translation">${escapeHtml(inlineTranslation)}</div>` : ''}
           <div class="line-actions">
-            <button class="tiny-btn ai-btn" data-analyze-line="${line.line_index}" data-tip="台词分析" aria-label="台词分析">⟡</button>
-            <button class="tiny-btn ai-btn" data-explain-line="${line.line_index}" data-tip="文化注释" aria-label="文化注释">⊙</button>
-            <button class="tiny-btn ai-btn" data-rewrite-line="${line.line_index}" data-tip="改写台词" aria-label="改写台词">↻</button>
-            <button class="tiny-btn ai-btn" data-sentiment-line="${line.line_index}" data-tip="情感标注" aria-label="情感标注">♡</button>
-            <button class="tiny-btn" data-collect-line="${line.line_index}" data-tip="收藏台词" aria-label="收藏台词">★</button>
-            <button class="tiny-btn" data-highlight-line="${line.line_index}" data-tip="高亮标记" aria-label="高亮标记">◈</button>
-            <button class="tiny-btn" data-note-line="${line.line_index}" data-tip="添加笔记" aria-label="添加笔记">✎</button>
+            <button class="tiny-btn ai-btn" data-analyze-line="${line.line_index}" data-tip="Analyze" aria-label="Analyze">⟡</button>
+            <button class="tiny-btn ai-btn" data-explain-line="${line.line_index}" data-tip="Explain" aria-label="Explain">⊙</button>
+            <button class="tiny-btn ai-btn" data-rewrite-line="${line.line_index}" data-tip="Rewrite" aria-label="Rewrite">↻</button>
+            <button class="tiny-btn ai-btn" data-sentiment-line="${line.line_index}" data-tip="Sentiment" aria-label="Sentiment">♡</button>
+            <button class="tiny-btn" data-collect-line="${line.line_index}" data-tip="Collect" aria-label="Collect">★</button>
+            <button class="tiny-btn" data-highlight-line="${line.line_index}" data-tip="Highlight" aria-label="Highlight">◈</button>
+            <button class="tiny-btn" data-note-line="${line.line_index}" data-tip="Note" aria-label="Note">✎</button>
           </div>
         </div>
         ${noteText ? `<p class="note-preview">NOTE: ${escapeHtml(noteText)}</p>` : ''}
@@ -755,15 +755,15 @@ function renderCollections() {
   const all = state.collections;
   const selected = selectedCollection();
   const itemCount = selected ? selected.items.length : 0;
-  elements.collectionCount.textContent = `${itemCount} 条`;
+  elements.collectionCount.textContent = `${itemCount} items`;
 
   elements.collectionSelect.innerHTML = all.length
     ? all.map(item => `<option value="${item.id}" ${item.id === state.selectedCollectionId ? 'selected' : ''}>${escapeHtml(item.name)} (${item.item_count})</option>`).join('')
-    : '<option value="">选择收藏夹</option>';
+    : '<option value="">Select Collection</option>';
 
   if (!selected) {
     elements.collectionItems.className = 'collection-items empty-state';
-    elements.collectionItems.textContent = '暂无收藏内容';
+    elements.collectionItems.textContent = 'No collection items';
     elements.collectionDelete.disabled = true;
     elements.collectionExportMd.disabled = true;
     elements.collectionExportJson.disabled = true;
@@ -782,7 +782,7 @@ function renderCollections() {
 
   if (!filtered.length) {
     elements.collectionItems.className = 'collection-items empty-state';
-    elements.collectionItems.textContent = '当前筛选下没有收藏';
+    elements.collectionItems.textContent = 'No collections match current filter';
     return;
   }
 
@@ -794,8 +794,8 @@ function renderCollections() {
       ${item.tags && item.tags.length ? `<div class="collection-tags">${item.tags.map(tag => `<span class="tag-pill">${escapeHtml(tag)}</span>`).join('')}</div>` : ''}
       ${item.note ? `<div class="collection-note">${escapeHtml(item.note)}</div>` : ''}
       <div class="line-actions">
-        <button class="tiny-btn" data-open-collection-episode="${item.episode_id}" data-open-collection-line="${item.line_index}">跳转</button>
-        <button class="tiny-btn" data-delete-collection-item="${item.id}">移除</button>
+        <button class="tiny-btn" data-open-collection-episode="${item.episode_id}" data-open-collection-line="${item.line_index}">Jump</button>
+        <button class="tiny-btn" data-delete-collection-item="${item.id}">Remove</button>
       </div>
     </article>
   `).join('');
@@ -877,7 +877,7 @@ async function createCollection() {
 
 async function deleteSelectedCollection() {
   if (!state.selectedCollectionId) return;
-  if (!await hudConfirm({ title: '删除确认', message: '确认删除当前收藏夹及其全部条目？此操作无法撤销。', confirmText: '删除' })) return;
+  if (!await hudConfirm({ title: 'Delete Confirmation', message: 'Delete this collection and all its items? This cannot be undone.', confirmText: 'Delete' })) return;
   if (state.isGuest) {
     let collections = guestLoadCollections();
     collections = collections.filter(c => c.id !== state.selectedCollectionId);
@@ -933,7 +933,7 @@ async function collectLine(lineIndex) {
   if (!state.currentEpisode) return;
   if (!state.selectedCollectionId) {
     elements.collectionItems.className = 'collection-items';
-    elements.collectionItems.innerHTML = '<div class="status-item warn">请先新建或选择收藏夹</div>';
+    elements.collectionItems.innerHTML = '<div class="status-item warn">Please create or select a collection first</div>';
     return;
   }
   const line = state.currentEpisode.lines.find(item => item.line_index === lineIndex && !item.is_direction);
@@ -1026,12 +1026,12 @@ async function selectEpisode(episodeId) {
   state.translateAllActive = false;
   if (savedCount > 0) {
     elements.translationPanel.className = 'translation-panel';
-    elements.translationPanel.innerHTML = `<div class="translation-content">已加载 ${savedCount} 条保存的翻译</div>`;
-    elements.translateAllBtn.textContent = `✓ 已翻译 ${savedCount} 行`;
+    elements.translationPanel.innerHTML = `<div class="translation-content">Loaded ${savedCount} saved translations</div>`;
+    elements.translateAllBtn.textContent = `✓ Translated ${savedCount} lines`;
   } else {
     elements.translationPanel.className = 'translation-panel empty-state';
-    elements.translationPanel.textContent = '使用“全文翻译”后，翻译结果会显示在每条台词下方。';
-    elements.translateAllBtn.textContent = '⚡ 全文翻译';
+    elements.translationPanel.textContent = 'After using "Translate All", results appear below each line.';
+    elements.translateAllBtn.textContent = '⚡ Translate All';
   }
   elements.translateAllBtn.disabled = false;
   elements.translateAllBtn.classList.remove('running');
@@ -1057,7 +1057,7 @@ async function editHighlight(lineIndex) {
   const key = String(lineIndex);
   const current = state.annotations.highlights[key] || '';
   const choice = await hudColorPicker({ currentColor: current });
-  if (choice === null) return; // 取消
+  if (choice === null) return; // cancelled
   const valid = ['yellow', 'red', 'green', 'blue', 'purple'];
   if (state.isGuest) {
     const allAnnotations = guestLoadAnnotations();
@@ -1090,7 +1090,7 @@ async function editNote(lineIndex) {
   if (!state.currentEpisode) return;
   const key = String(lineIndex);
   const current = state.annotations.notes[key] || '';
-  const content = await hudPrompt({ title: '添加笔记', label: '笔记内容（留空则删除）', defaultValue: current, textarea: true });
+  const content = await hudPrompt({ title: 'Add Note', label: 'Note content (leave blank to delete)', defaultValue: current, textarea: true });
   if (content === null) return;
   if (state.isGuest) {
     const allAnnotations = guestLoadAnnotations();
@@ -1120,11 +1120,11 @@ async function editNote(lineIndex) {
 
 async function editSpeaker(lineIndex) {
   if (!state.currentEpisode) return;
-  if (state.isGuest) { elements.downloadStatus.innerHTML = '<div class="status-item warn">访客模式不可编辑</div>'; return; }
+  if (state.isGuest) { elements.downloadStatus.innerHTML = '<div class="status-item warn">Guest mode: editing disabled</div>'; return; }
   const line = state.currentEpisode.lines.find(l => l.line_index === lineIndex);
   if (!line) return;
   const current = line.speaker || '';
-  const name = await hudPrompt({ title: '修改角色名', label: '新角色名（留空表示无角色/NARRATION）', defaultValue: current });
+  const name = await hudPrompt({ title: 'Edit Speaker', label: 'New speaker name (blank = NARRATION)', defaultValue: current });
   if (name === null) return;
   const newSpeaker = name.trim() || null;
   try {
@@ -1134,23 +1134,23 @@ async function editSpeaker(lineIndex) {
       body: JSON.stringify({ updates: [{ line_index: lineIndex, speaker: newSpeaker }] }),
     });
     await selectEpisode(state.currentEpisode.id);
-    elements.downloadStatus.innerHTML = '<div class="status-item success">角色名已更新</div>';
+    elements.downloadStatus.innerHTML = '<div class="status-item success">Speaker name updated</div>';
   } catch (error) {
-    elements.downloadStatus.innerHTML = `<div class="status-item warn">更新失败：${escapeHtml(String(error.message || error))}</div>`;
+    elements.downloadStatus.innerHTML = `<div class="status-item warn">Update failed: ${escapeHtml(String(error.message || error))}</div>`;
   }
 }
 
 async function editEpisodeMeta() {
   if (!state.currentEpisode) return;
-  if (state.isGuest) { elements.downloadStatus.innerHTML = '<div class="status-item warn">访客模式不可编辑</div>'; return; }
+  if (state.isGuest) { elements.downloadStatus.innerHTML = '<div class="status-item warn">Guest mode: editing disabled</div>'; return; }
   const ep = state.currentEpisode;
-  const showName = await hudPrompt({ title: '编辑剧集信息', label: '剧名', defaultValue: ep.show_name || '' });
+  const showName = await hudPrompt({ title: 'Edit Episode Info', label: 'Show Name', defaultValue: ep.show_name || '' });
   if (showName === null) return;
-  const seasonNum = await hudPrompt({ title: '编辑剧集信息', label: '季号（数字）', defaultValue: String(ep.season_number || 0) });
+  const seasonNum = await hudPrompt({ title: 'Edit Episode Info', label: 'Season Number', defaultValue: String(ep.season_number || 0) });
   if (seasonNum === null) return;
-  const episodeCode = await hudPrompt({ title: '编辑剧集信息', label: '集代码（如 S01E01，可留空）', defaultValue: ep.episode_code || '' });
+  const episodeCode = await hudPrompt({ title: 'Edit Episode Info', label: 'Episode Code (e.g. S01E01, optional)', defaultValue: ep.episode_code || '' });
   if (episodeCode === null) return;
-  const title = await hudPrompt({ title: '编辑剧集信息', label: '标题', defaultValue: ep.title || '' });
+  const title = await hudPrompt({ title: 'Edit Episode Info', label: 'Title', defaultValue: ep.title || '' });
   if (title === null) return;
 
   try {
@@ -1166,18 +1166,18 @@ async function editEpisodeMeta() {
     });
     await loadLibrary();
     await selectEpisode(ep.id);
-    elements.downloadStatus.innerHTML = '<div class="status-item success">剧集信息已更新</div>';
+    elements.downloadStatus.innerHTML = '<div class="status-item success">Episode info updated</div>';
   } catch (error) {
-    elements.downloadStatus.innerHTML = `<div class="status-item warn">更新失败：${escapeHtml(String(error.message || error))}</div>`;
+    elements.downloadStatus.innerHTML = `<div class="status-item warn">Update failed: ${escapeHtml(String(error.message || error))}</div>`;
   }
 }
 
 async function bulkRenameSpeaker() {
   if (!state.currentEpisode) return;
-  if (state.isGuest) { elements.downloadStatus.innerHTML = '<div class="status-item warn">访客模式不可编辑</div>'; return; }
-  const oldName = await hudPrompt({ title: '批量改角色名', label: '旧角色名（或 NARRATION）', defaultValue: 'NARRATION' });
+  if (state.isGuest) { elements.downloadStatus.innerHTML = '<div class="status-item warn">Guest mode: editing disabled</div>'; return; }
+  const oldName = await hudPrompt({ title: 'Bulk Rename Speakers', label: 'Old speaker name (or NARRATION)', defaultValue: 'NARRATION' });
   if (oldName === null) return;
-  const newName = await hudPrompt({ title: '批量改角色名', label: '新角色名', defaultValue: '' });
+  const newName = await hudPrompt({ title: 'Bulk Rename Speakers', label: 'New speaker name', defaultValue: '' });
   if (newName === null || !newName.trim()) return;
 
   const updates = state.currentEpisode.lines
@@ -1185,7 +1185,7 @@ async function bulkRenameSpeaker() {
     .map(line => ({ line_index: line.line_index, speaker: newName.trim() }));
 
   if (!updates.length) {
-    elements.downloadStatus.innerHTML = '<div class="status-item warn">没有找到匹配的角色</div>';
+    elements.downloadStatus.innerHTML = '<div class="status-item warn">No matching speakers found</div>';
     return;
   }
 
@@ -1196,9 +1196,9 @@ async function bulkRenameSpeaker() {
       body: JSON.stringify({ updates }),
     });
     await selectEpisode(state.currentEpisode.id);
-    elements.downloadStatus.innerHTML = `<div class="status-item success">已更新 ${updates.length} 行角色名</div>`;
+    elements.downloadStatus.innerHTML = `<div class="status-item success">Updated ${updates.length} speaker names</div>`;
   } catch (error) {
-    elements.downloadStatus.innerHTML = `<div class="status-item warn">更新失败：${escapeHtml(String(error.message || error))}</div>`;
+    elements.downloadStatus.innerHTML = `<div class="status-item warn">Update failed: ${escapeHtml(String(error.message || error))}</div>`;
   }
 }
 
@@ -1206,14 +1206,14 @@ async function runGlobalSearch() {
   const keyword = (elements.globalSearch?.value || '').trim();
   if (!keyword) {
     elements.searchResults.className = 'search-results empty-state';
-    elements.searchResults.textContent = '请输入关键词。';
+    elements.searchResults.textContent = 'Please enter keywords.';
     return;
   }
 
   const result = await request(`/api/search/lines?q=${encodeURIComponent(keyword)}&limit=80`);
   if (!result.items.length) {
     elements.searchResults.className = 'search-results empty-state';
-    elements.searchResults.textContent = '没有找到匹配对白。';
+    elements.searchResults.textContent = 'No matching dialogue found.';
     return;
   }
 
@@ -1258,12 +1258,12 @@ async function loadLibrary() {
 }
 
 async function rebuildLibrary() {
-  if (state.isGuest) { elements.downloadStatus.innerHTML = '<div class="status-item warn">访客模式不可重建索引</div>'; return; }
+  if (state.isGuest) { elements.downloadStatus.innerHTML = '<div class="status-item warn">Guest mode: cannot rebuild index</div>'; return; }
   elements.rebuildLibrary.disabled = true;
   try {
     const result = await request('/api/library/rebuild', { method: 'POST' });
     await loadLibrary();
-    elements.downloadStatus.innerHTML = `<div class="status-item success">已重建索引：${result.files} 个文件 / ${result.episodes} 集</div>`;
+    elements.downloadStatus.innerHTML = `<div class="status-item success">Index rebuilt: ${result.files} files / ${result.episodes} eps</div>`;
   } finally {
     elements.rebuildLibrary.disabled = false;
   }
@@ -1273,7 +1273,7 @@ async function loadImportsList() {
   try {
     const files = await request('/api/imports/files');
     if (!files.length) {
-      elements.importsList.innerHTML = '<div class="status-item">暂无手动导入文件</div>';
+      elements.importsList.innerHTML = '<div class="status-item">No manual imports</div>';
       return;
     }
     elements.importsList.innerHTML = files.map(f => {
@@ -1283,21 +1283,21 @@ async function loadImportsList() {
         <div class="job-head"><strong>${escapeHtml(f.name)}</strong><span class="muted">${size}</span></div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px;">
           <small class="muted">${date}</small>
-          <button class="tiny-btn" data-delete-import="${escapeHtml(f.name)}">删除</button>
+          <button class="tiny-btn" data-delete-import="${escapeHtml(f.name)}">Delete</button>
         </div>
       </div>`;
     }).join('');
 
     document.querySelectorAll('[data-delete-import]').forEach(btn => {
       btn.addEventListener('click', async () => {
-        if (!await hudConfirm({ title: '删除确认', message: `确认删除导入文件 "${btn.dataset.deleteImport}" 及其关联剧集？`, confirmText: '删除' })) return;
+        if (!await hudConfirm({ title: 'Delete Confirmation', message: `Delete import file "${btn.dataset.deleteImport}" and its associated episodes?`, confirmText: 'Delete' })) return;
         try {
           await request(`/api/imports/files/${encodeURIComponent(btn.dataset.deleteImport)}`, { method: 'DELETE' });
           await loadImportsList();
           await loadLibrary();
-          elements.downloadStatus.innerHTML = '<div class="status-item success">文件已删除</div>';
+          elements.downloadStatus.innerHTML = '<div class="status-item success">File deleted</div>';
         } catch (error) {
-          elements.downloadStatus.innerHTML = `<div class="status-item warn">删除失败：${escapeHtml(String(error.message || error))}</div>`;
+          elements.downloadStatus.innerHTML = `<div class="status-item warn">Delete failed: ${escapeHtml(String(error.message || error))}</div>`;
         }
       });
     });
@@ -1308,15 +1308,15 @@ async function loadImportsList() {
 
 async function uploadFiles(files) {
   if (!files.length) return;
-  if (state.isGuest) { elements.downloadStatus.innerHTML = '<div class="status-item warn">访客模式不可上传</div>'; return; }
+  if (state.isGuest) { elements.downloadStatus.innerHTML = '<div class="status-item warn">Guest mode: upload disabled</div>'; return; }
   const formData = new FormData();
   for (const file of files) formData.append('files', file);
   const result = await request('/api/imports/files', { method: 'POST', body: formData });
   await loadLibrary();
   await loadImportsList();
   elements.downloadStatus.innerHTML = `
-    <div class="status-item success">导入 ${result.imported_files} 个文件，新增 ${result.imported_episodes} 集</div>
-    ${result.skipped_files.map(item => `<div class="status-item warn">跳过：${item}</div>`).join('')}
+    <div class="status-item success">Imported ${result.imported_files} files, added ${result.imported_episodes} eps</div>
+    ${result.skipped_files.map(item => `<div class="status-item warn">Skipped: ${item}</div>`).join('')}
   `;
 }
 
@@ -1343,7 +1343,7 @@ function renderJobProgress(job) {
 async function loadDownloadJobs() {
   const jobs = await request('/api/downloads');
   if (!jobs.length) {
-    elements.downloadStatus.innerHTML = '<div class="status-item">暂无下载任务</div>';
+    elements.downloadStatus.innerHTML = '<div class="status-item">No download tasks</div>';
     return;
   }
   elements.downloadStatus.innerHTML = jobs.map(job => `
@@ -1354,10 +1354,10 @@ async function loadDownloadJobs() {
       </div>
       ${renderJobProgress(job)}
       ${job.progress_text ? `<div class="job-progress">${escapeHtml(job.progress_text)}</div>` : ''}
-      ${job.current_item && job.current_item !== job.progress_text ? `<div class="job-current">当前：${escapeHtml(job.current_item)}</div>` : ''}
-      ${job.status === 'failed' && job.error_line ? `<div class="job-error">错误：${escapeHtml(job.error_line)}</div>` : ''}
-      ${job.last_log_line ? `<small class="job-log">日志：${escapeHtml(job.last_log_line)}</small>` : ''}
-      ${job.status === 'running' ? `<button class="tiny-btn job-cancel-btn" data-cancel-job="${job.job_id}">停止任务</button>` : ''}
+      ${job.current_item && job.current_item !== job.progress_text ? `<div class="job-current">Current: ${escapeHtml(job.current_item)}</div>` : ''}
+      ${job.status === 'failed' && job.error_line ? `<div class="job-error">Error: ${escapeHtml(job.error_line)}</div>` : ''}
+      ${job.last_log_line ? `<small class="job-log">Log: ${escapeHtml(job.last_log_line)}</small>` : ''}
+      ${job.status === 'running' ? `<button class="tiny-btn job-cancel-btn" data-cancel-job="${job.job_id}">Stop</button>` : ''}
       <small>${job.started_at}${job.finished_at ? ` -> ${job.finished_at}` : ''}</small>
     </div>
   `).join('');
@@ -1372,7 +1372,7 @@ async function loadDownloadJobs() {
         button.disabled = false;
         elements.downloadStatus.insertAdjacentHTML(
           'afterbegin',
-          `<div class="status-item warn">停止失败：${escapeHtml(String(error.message || error))}</div>`,
+          `<div class="status-item warn">Stop failed: ${escapeHtml(String(error.message || error))}</div>`,
         );
       }
     });
@@ -1381,13 +1381,13 @@ async function loadDownloadJobs() {
 
 // ── Catalog search & download ───────────────────────────────────────────
 async function refreshCatalog() {
-  if (state.isGuest) { elements.catalogStatus.textContent = '访客模式不可刷新目录'; return; }
+  if (state.isGuest) { elements.catalogStatus.textContent = 'Guest mode: cannot refresh catalog'; return; }
   elements.refreshCatalog.disabled = true;
   try {
     await request('/api/catalog/refresh', { method: 'POST' });
     pollCatalogStatus();
   } catch (error) {
-    elements.catalogStatus.textContent = `刷新失败：${error.message || error}`;
+    elements.catalogStatus.textContent = `Refresh failed: ${error.message || error}`;
     elements.refreshCatalog.disabled = false;
   }
 }
@@ -1401,7 +1401,7 @@ function pollCatalogStatus() {
       const st = await request('/api/catalog/status');
       elements.catalogStatus.textContent = st.scraping
         ? st.progress
-        : `目录共 ${st.total_entries} 部${st.updated_at ? '（' + st.updated_at.slice(0, 16).replace('T', ' ') + '）' : ''}`;
+        : `Catalog: ${st.total_entries} shows${st.updated_at ? ' (' + st.updated_at.slice(0, 16).replace('T', ' ') + ')' : ''}`;
       if (!st.scraping) {
         elements.refreshCatalog.disabled = false;
         window.clearInterval(_catalogPollTimer);
@@ -1427,7 +1427,7 @@ async function searchCatalog() {
 function renderCatalogResults() {
   const results = state.catalogResults;
   if (!results.length) {
-    elements.catalogResults.innerHTML = '<div class="empty-state" style="min-height:40px">未找到匹配剧名</div>';
+    elements.catalogResults.innerHTML = '<div class="empty-state" style="min-height:40px">No matching shows found</div>';
     return;
   }
   elements.catalogResults.innerHTML = results.map((group, gi) => `
@@ -1464,9 +1464,9 @@ function renderCatalogResults() {
           body: JSON.stringify(source.params),
         });
         await loadDownloadJobs();
-        elements.downloadStatus.innerHTML = `<div class="status-item success">已开始下载：${escapeHtml(group.name)}（${escapeHtml(source.site_label)}）</div>`;
+        elements.downloadStatus.innerHTML = `<div class="status-item success">Download started: ${escapeHtml(group.name)} (${escapeHtml(source.site_label)})</div>`;
       } catch (error) {
-        elements.downloadStatus.innerHTML = `<div class="status-item warn">下载失败：${escapeHtml(String(error.message || error))}</div>`;
+        elements.downloadStatus.innerHTML = `<div class="status-item warn">Download failed: ${escapeHtml(String(error.message || error))}</div>`;
       } finally {
         btn.disabled = false;
         btn.textContent = `${source.site_label} ↓`;
@@ -1481,8 +1481,8 @@ async function loadCatalogStatus() {
     elements.catalogStatus.textContent = st.scraping
       ? st.progress
       : st.total_entries
-        ? `目录共 ${st.total_entries} 部${st.updated_at ? '（' + st.updated_at.slice(0, 16).replace('T', ' ') + '）' : ''}`
-        : '尚未刷新目录';
+        ? `Catalog: ${st.total_entries} shows${st.updated_at ? ' (' + st.updated_at.slice(0, 16).replace('T', ' ') + ')' : ''}`
+        : 'Catalog not refreshed yet';
     if (st.scraping) {
       elements.refreshCatalog.disabled = true;
       pollCatalogStatus();
@@ -1493,7 +1493,7 @@ async function loadCatalogStatus() {
 }
 
 async function advancedDownload(params) {
-  if (state.isGuest) { elements.downloadStatus.innerHTML = '<div class="status-item warn">访客模式不可下载</div>'; return; }
+  if (state.isGuest) { elements.downloadStatus.innerHTML = '<div class="status-item warn">Guest mode: download disabled</div>'; return; }
   try {
     await request('/api/downloads/start', {
       method: 'POST',
@@ -1501,9 +1501,9 @@ async function advancedDownload(params) {
       body: JSON.stringify(params),
     });
     await loadDownloadJobs();
-    elements.downloadStatus.innerHTML = `<div class="status-item success">已开始下载（${escapeHtml(params.target)}）</div>`;
+    elements.downloadStatus.innerHTML = `<div class="status-item success">Download started (${escapeHtml(params.target)})</div>`;
   } catch (error) {
-    elements.downloadStatus.innerHTML = `<div class="status-item warn">下载失败：${escapeHtml(String(error.message || error))}</div>`;
+    elements.downloadStatus.innerHTML = `<div class="status-item warn">Download failed: ${escapeHtml(String(error.message || error))}</div>`;
   }
 }
 
@@ -1512,9 +1512,9 @@ async function advancedDownload(params) {
 async function startDownloadWithCheck(showName, params) {
   // Check if show already exists in library before downloading
   if (showName && showExists(showName)) {
-    const shouldContinue = confirm(`"${escapeHtml(showName)}" 已在剧本库中。是否继续下载？`);
+    const shouldContinue = confirm(`"${escapeHtml(showName)}"  already in library. Continue downloading?`);
     if (!shouldContinue) {
-      elements.downloadStatus.innerHTML = `<div class="status-item">已取消：${escapeHtml(showName)}</div>`;
+      elements.downloadStatus.innerHTML = `<div class="status-item">Cancelled: ${escapeHtml(showName)}</div>`;
       return false;
     }
   }
@@ -1526,13 +1526,13 @@ async function loadAiStatus() {
   if (configured) {
     elements.ollamaStatus.textContent = `✓ ${state.aiProvider} · ${state.aiModel}`;
     elements.ollamaStatus.className = 'muted ai-online';
-    elements.ollamaStatus.title = 'AI 已配置';
+    elements.ollamaStatus.title = 'AI configured';
     if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = state.aiModel;
   } else {
-    elements.ollamaStatus.textContent = '✗ 未配置 AI';
+    elements.ollamaStatus.textContent = '✗ AI not configured';
     elements.ollamaStatus.className = 'muted ai-offline';
-    elements.ollamaStatus.title = '请在设置中配置 AI 服务商、API Key 和模型';
-    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = '未配置';
+    elements.ollamaStatus.title = 'Configure AI provider, API Key and model in settings';
+    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = 'Not configured';
   }
 }
 
@@ -1542,19 +1542,19 @@ async function detectAiModels() {
   const apiKey = elements.sAiApiKey.value;
   const baseUrl = elements.sAiBaseUrl?.value || '';
   if (!provider) {
-    elements.sAiStatus.textContent = '请先选择服务商';
+    elements.sAiStatus.textContent = 'Please select a provider first';
     return;
   }
   if (!apiKey) {
-    elements.sAiStatus.textContent = '请先填写 API Key';
+    elements.sAiStatus.textContent = 'Please enter API Key first';
     return;
   }
-  elements.sAiStatus.textContent = '检测中…';
+  elements.sAiStatus.textContent = 'Checking…';
   try {
     const models = await request(`/api/ai/models?provider=${encodeURIComponent(provider)}&api_key=${encodeURIComponent(apiKey)}&base_url=${encodeURIComponent(baseUrl)}`);
     const opts = models.length
       ? models.map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)}</option>`).join('')
-      : '<option value="">无可用模型</option>';
+      : '<option value="">No models available</option>';
     elements.sAiModel.innerHTML = opts;
     elements.ollamaModel.innerHTML = opts;
     if (models.length) {
@@ -1565,9 +1565,9 @@ async function detectAiModels() {
       elements.ollamaModel.value = selected;
       if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = selected;
     }
-    elements.sAiStatus.textContent = `检测到 ${models.length} 个模型`;
+    elements.sAiStatus.textContent = `Detected ${models.length} models`;
   } catch (error) {
-    elements.sAiStatus.textContent = `检测失败：${error.message || error}`;
+    elements.sAiStatus.textContent = `Detection failed: ${error.message || error}`;
   }
 }
 
@@ -1594,7 +1594,7 @@ async function aiChat(task, content) {
   const apiKey = state.aiApiKey;
   const baseUrl = state.aiBaseUrl;
   if (!provider || !apiKey || !model) {
-    return { ok: false, error: 'AI 未配置，请先前往设置填写 API Key 并选择模型' };
+    return { ok: false, error: 'AI not configured. Please set up API Key and model in settings.' };
   }
   const result = await request('/api/ai/chat', {
     method: 'POST',
@@ -1608,7 +1608,7 @@ async function aiChat(task, content) {
 
 function setBadge(el, configured) {
   if (!el) return;
-  el.textContent = configured ? '已配置' : '未配置';
+  el.textContent = configured ? 'Configured' : 'Not configured';
   el.className = 'settings-badge ' + (configured ? 'configured' : 'not-configured');
 }
 
@@ -1621,16 +1621,16 @@ async function loadSettings() {
     if (elements.sAiModel) {
       elements.sAiModel.innerHTML = data.ai_model
         ? `<option value="${escapeHtml(data.ai_model)}">${escapeHtml(data.ai_model)}</option>`
-        : '<option value="">点击 ⟳ 检测模型</option>';
+        : '<option value="">Click ⟳ to detect models</option>';
       elements.sAiModel.value = data.ai_model || '';
     }
     if (elements.ollamaModel) {
       elements.ollamaModel.innerHTML = data.ai_model
         ? `<option value="${escapeHtml(data.ai_model)}">${escapeHtml(data.ai_model)}</option>`
-        : '<option value="">未配置</option>';
+        : '<option value="">Not configured</option>';
       elements.ollamaModel.value = data.ai_model || '';
     }
-    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = data.ai_model || '未配置';
+    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = data.ai_model || 'Not configured';
     state.aiProvider = data.ai_provider || '';
     state.aiBaseUrl = data.ai_base_url || '';
     state.aiApiKey = data.ai_api_key || '';
@@ -1646,17 +1646,17 @@ async function loadSettings() {
     if (elements.sAiModel) {
       elements.sAiModel.innerHTML = data.ai_model
         ? `<option value="${escapeHtml(data.ai_model)}">${escapeHtml(data.ai_model)}</option>`
-        : '<option value="">点击 ⟳ 检测模型</option>';
+        : '<option value="">Click ⟳ to detect models</option>';
       elements.sAiModel.value = data.ai_model || '';
     }
     // Sync internal hidden select
     if (elements.ollamaModel) {
       elements.ollamaModel.innerHTML = data.ai_model
         ? `<option value="${escapeHtml(data.ai_model)}">${escapeHtml(data.ai_model)}</option>`
-        : '<option value="">未配置</option>';
+        : '<option value="">Not configured</option>';
       elements.ollamaModel.value = data.ai_model || '';
     }
-    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = data.ai_model || '未配置';
+    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = data.ai_model || 'Not configured';
     // Update state
     state.aiProvider = data.ai_provider || '';
     state.aiBaseUrl = data.ai_base_url || '';
@@ -1680,7 +1680,7 @@ async function saveSettings() {
   if (model !== undefined) patch.ai_model = model;
 
   if (!Object.keys(patch).length) {
-    elements.sSaveMsg.textContent = '没有要保存的变更';
+    elements.sSaveMsg.textContent = 'No changes to save';
     setTimeout(() => { if (elements.sSaveMsg) elements.sSaveMsg.textContent = ''; }, 2000);
     return;
   }
@@ -1689,7 +1689,7 @@ async function saveSettings() {
     const current = guestLoadSettings();
     const updated = { ...current, ...patch };
     guestSaveSettings(updated);
-    elements.sSaveMsg.textContent = '✓ 已保存到本地';
+    elements.sSaveMsg.textContent = '✓ Saved locally';
     await loadSettings();
     await loadAiStatus();
     setTimeout(() => { if (elements.sSaveMsg) elements.sSaveMsg.textContent = ''; }, 3000);
@@ -1703,11 +1703,11 @@ async function saveSettings() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(patch),
     });
-    elements.sSaveMsg.textContent = '✓ 已保存';
+    elements.sSaveMsg.textContent = '✓ Saved';
     await loadSettings();
     await loadAiStatus();
   } catch {
-    elements.sSaveMsg.textContent = '✗ 保存失败';
+    elements.sSaveMsg.textContent = '✗ Save failed';
   } finally {
     elements.sSave.disabled = false;
     setTimeout(() => { if (elements.sSaveMsg) elements.sSaveMsg.textContent = ''; }, 3000);
@@ -1727,12 +1727,12 @@ function buildLineContext(lineIndex) {
 }
 
 async function aiLineTask(task, lineIndex) {
-  if (!state.aiConfigured) { showAiResult('AI 未配置，请先前往设置填写 API Key 并选择模型'); return; }
+  if (!state.aiConfigured) { showAiResult('AI not configured. Please set up API Key and model in settings.'); return; }
   const { line, context } = buildLineContext(lineIndex);
   if (!line) return;
 
-  const taskLabels = { analyze: '台词点评', explain: '注释', rewrite: '改写', sentiment: '情感' };
-  showAiResult(`正在${taskLabels[task] || task}…`);
+  const taskLabels = { analyze: 'Analysis', explain: 'Explanation', rewrite: 'Rewrite', sentiment: 'Sentiment' };
+  showAiResult(`Processing ${taskLabels[task] || task}…`);
 
   try {
     const result = await aiChat(task, context);
@@ -1743,19 +1743,19 @@ async function aiLineTask(task, lineIndex) {
         `<div class="ai-result-body">${formatAiReply(result.reply)}</div>`
       , true);
     } else {
-      showAiResult(`出错：${escapeHtml(result.error || '未知错误')}`);
+      showAiResult(`Error: ${escapeHtml(result.error || 'Unknown error')}`);
     }
   } catch (error) {
-    showAiResult(`请求失败：${escapeHtml(String(error.message || error))}`);
+    showAiResult(`Request failed: ${escapeHtml(String(error.message || error))}`);
   }
 }
 
 async function aiEpisodeTask(task) {
-  if (!state.aiConfigured) { showAiResult('AI 未配置，请先前往设置填写 API Key 并选择模型'); return; }
-  if (!state.currentEpisode) { showAiResult('请先选择一集'); return; }
+  if (!state.aiConfigured) { showAiResult('AI not configured. Please set up API Key and model in settings.'); return; }
+  if (!state.currentEpisode) { showAiResult('Please select an episode first'); return; }
 
-  const taskLabels = { summary: '本集摘要', profile: '角色画像' };
-  showAiResult(`正在生成${taskLabels[task] || task}…`);
+  const taskLabels = { summary: 'Episode Summary', profile: 'Character Profile' };
+  showAiResult(`Processing ${taskLabels[task] || task}…`);
 
   let content = '';
   if (task === 'summary') {
@@ -1765,7 +1765,7 @@ async function aiEpisodeTask(task) {
       .join('\n');
   } else if (task === 'profile') {
     const speaker = [...state.selectedSpeakers][0];
-    if (!speaker) { showAiResult('请先在右侧选中一位角色，再点击角色画像。'); return; }
+    if (!speaker) { showAiResult('Please select a speaker on the right first, then click Character Profile.'); return; }
     const speakerLines = state.currentEpisode.lines
       .filter(l => l.speaker === speaker)
       .map(l => `${l.speaker}: ${l.text}`)
@@ -1781,10 +1781,10 @@ async function aiEpisodeTask(task) {
         `<div class="ai-result-body">${formatAiReply(result.reply)}</div>`
       , true);
     } else {
-      showAiResult(`出错：${escapeHtml(result.error || '未知错误')}`);
+      showAiResult(`Error: ${escapeHtml(result.error || 'Unknown error')}`);
     }
   } catch (error) {
-    showAiResult(`请求失败：${escapeHtml(String(error.message || error))}`);
+    showAiResult(`Request failed: ${escapeHtml(String(error.message || error))}`);
   }
 }
 
@@ -1835,7 +1835,7 @@ async function translateAll() {
   let done = 0;
 
   state.translateAllActive = true;
-  elements.translateAllBtn.textContent = `⏹ 停止 (0/${total})`;
+  elements.translateAllBtn.textContent = `⏹ Stop (0/${total})`;
   elements.translateAllBtn.classList.add('running');
 
   for (const line of allLines) {
@@ -1864,7 +1864,7 @@ async function translateAll() {
     } catch (_) { /* silently skip */ }
     done++;
     if (state.translateAllActive) {
-      elements.translateAllBtn.textContent = `⏹ 停止 (${done}/${total})`;
+      elements.translateAllBtn.textContent = `⏹ Stop (${done}/${total})`;
     }
   }
 
@@ -1891,17 +1891,17 @@ async function translateAll() {
         });
       }
     } catch (err) {
-      console.error('保存翻译失败', err);
+      console.error('Failed to save translation', err);
     }
   }
 
   elements.translateAllBtn.textContent = stopped
-    ? `⚡ 继续翻译 (${done}/${total})`
-    : `✓ 已翻译 ${total} 行`;
+    ? `⚡ Continue (${done}/${total})`
+    : `✓ Translated ${total} lines`;
 }
 
 function wireEvents() {
-  // ── HUD Modal 全局关闭事件 ──
+  // ── HUD Modal global close event ──
   const hudOverlay = document.getElementById('hud-modal-overlay');
   const hudClose = document.getElementById('hud-modal-close');
   const hudCancel = document.getElementById('hud-modal-cancel');
@@ -1937,7 +1937,7 @@ function wireEvents() {
     renderSpeakers();
     renderDialogue();
     elements.speakerTrackResults.className = 'search-results empty-state';
-    elements.speakerTrackResults.textContent = '选中 1 个角色后可跨集追踪其全部台词。';
+    elements.speakerTrackResults.textContent = 'Select 1 speaker to track their lines across episodes.';
   });
   elements.runGlobalSearch.addEventListener('click', runGlobalSearch);
   elements.globalSearch.addEventListener('keydown', event => {
@@ -1955,9 +1955,9 @@ function wireEvents() {
   elements.fdDownload.addEventListener('click', async () => {
     const showName = (elements.fdShowName.value || '').trim();
     if (showName && showExists(showName)) {
-      const shouldContinue = confirm(`"${escapeHtml(showName)}" 已存在于剧本库。要继续下载吗？`);
+      const shouldContinue = confirm(`"${escapeHtml(showName)}"  already in library. Continue downloading?`);
       if (!shouldContinue) {
-        elements.downloadStatus.innerHTML = `<div class="status-item">已取消：${escapeHtml(showName)}</div>`;
+        elements.downloadStatus.innerHTML = `<div class="status-item">Cancelled: ${escapeHtml(showName)}</div>`;
         return;
       }
     }
@@ -2005,7 +2005,7 @@ function wireEvents() {
   elements.ollamaRefreshModels.addEventListener('click', () => elements.openSettings.click());
   elements.ollamaModel.addEventListener('change', () => {
     state.aiModel = elements.ollamaModel.value;
-    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = elements.ollamaModel.value || '未选择模型';
+    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = elements.ollamaModel.value || 'No model selected';
     if (elements.sAiModel) elements.sAiModel.value = elements.ollamaModel.value;
   });
   if (elements.themeToggle) {
@@ -2034,7 +2034,7 @@ function wireEvents() {
     elements.sAiModel.addEventListener('change', () => {
       state.aiModel = elements.sAiModel.value;
       elements.ollamaModel.value = elements.sAiModel.value;
-      if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = elements.sAiModel.value || '未选择模型';
+      if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = elements.sAiModel.value || 'No model selected';
     });
   }
   elements.sSave.addEventListener('click', saveSettings);
@@ -2059,5 +2059,5 @@ async function bootstrap() {
 
 bootstrap().catch(error => {
   elements.dialogueList.className = 'dialogue-list empty-state';
-  elements.dialogueList.textContent = `初始化失败：${error.message || error}`;
+  elements.dialogueList.textContent = `Initialization failed: ${error.message || error}`;
 });

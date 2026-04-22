@@ -8,11 +8,11 @@
 </head>
 <body>
   <div class="app-shell">
-    <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="菜单">☰</button>
+    <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Menu">☰</button>
     <div id="sidebar-overlay" class="sidebar-overlay"></div>
     <div id="guest-banner" class="guest-banner" hidden>
       <span>YOU ARE BEING WATCHED</span>
-      <button id="guest-exit" class="ghost-btn" title="退出访客模式">OUT</button>
+      <button id="guest-exit" class="ghost-btn" title="Exit Guest Mode">OUT</button>
     </div>
     <aside class="sidebar" id="sidebar">
       <div class="brand-card">
@@ -22,46 +22,46 @@
       </div>
 
       <section class="panel compact-panel">
-        <label class="input-label" for="library-search">筛选剧集 / 集标题</label>
-        <input id="library-search" type="search" placeholder="例如 Person of Interest / Reese">
+        <label class="input-label" for="library-search">Filter Shows / Episode Titles</label>
+        <input id="library-search" type="search" placeholder="e.g. Person of Interest / Reese">
       </section>
 
       <section class="panel compact-panel">
         <div class="section-heading">
-          <h2>获取剧本</h2>
-          <button id="rebuild-library" class="ghost-btn">重建索引</button>
+          <h2>Library</h2>
+          <button id="rebuild-library" class="ghost-btn">Rebuild Index</button>
         </div>
         <div class="action-row">
-          <button id="refresh-catalog" class="secondary-btn">刷新目录</button>
+          <button id="refresh-catalog" class="secondary-btn">Refresh Catalog</button>
           <span id="catalog-status" class="muted"></span>
         </div>
-        <label class="input-label" for="catalog-search">搜索剧名（需先刷新目录）</label>
+        <label class="input-label" for="catalog-search">Search Show Name (refresh catalog first)</label>
         <div class="search-box-row">
-          <input id="catalog-search" type="search" placeholder="输入剧名关键词搜索…">
-          <button id="run-catalog-search" class="ghost-btn">搜索</button>
+          <input id="catalog-search" type="search" placeholder="Enter show keywords…">
+          <button id="run-catalog-search" class="ghost-btn">Search</button>
         </div>
         <div id="catalog-results" class="catalog-results"></div>
         <details class="advanced-toggle">
-          <summary class="muted">高级：手动输入下载信息</summary>
+          <summary class="muted">Advanced: Manual Download Input</summary>
           <div class="download-form">
-            <label class="input-label">ForeverDreaming 索引页 URL + 剧名</label>
+            <label class="input-label">ForeverDreaming Index URL + Show Name</label>
             <input id="fd-index-url" type="text" placeholder="https://transcripts.foreverdreaming.org/viewforum.php?f=23">
             <div class="search-box-row" style="margin-top:6px">
-              <input id="fd-show-name" type="text" placeholder="剧名，如 Fringe">
-              <button id="fd-download" class="ghost-btn">下载</button>
+              <input id="fd-show-name" type="text" placeholder="Show name, e.g. Fringe">
+              <button id="fd-download" class="ghost-btn">Download</button>
             </div>
           </div>
           <div class="download-form">
-            <label class="input-label">Springfield slug（如知道 slug 可直接输入）</label>
+            <label class="input-label">Springfield slug (enter directly if known)</label>
             <div class="search-box-row">
               <input id="adv-springfield-slug" type="text" placeholder="person-of-interest">
-              <button id="adv-springfield-download" class="ghost-btn">下载</button>
+              <button id="adv-springfield-download" class="ghost-btn">Download</button>
             </div>
           </div>
         </details>
         <label class="upload-box" for="manual-import">
-          <span>手动导入</span>
-          <small>支持 md / txt / json / srt / ass / fountain</small>
+          <span>Manual Import</span>
+          <small>Supports md / txt / json / srt / ass / fountain</small>
         </label>
         <input id="manual-import" type="file" multiple hidden accept=".md,.txt,.json,.srt,.ass,.fountain">
         <div id="imports-list" class="mini-list" style="max-height:160px;"></div>
@@ -70,7 +70,7 @@
 
       <section class="panel tree-panel">
         <div class="section-heading">
-          <h2>剧本库</h2>
+          <h2>Library</h2>
           <span id="library-count" class="muted"></span>
         </div>
         <div id="library-alpha-nav" class="library-alpha-nav"></div>
@@ -81,110 +81,110 @@
     <main class="main-content">
       <header class="toolbar panel">
         <div>
-          <p class="eyebrow">当前阅读</p>
-          <h2 id="episode-title">选择一集开始</h2>
+          <p class="eyebrow">Now Reading</p>
+          <h2 id="episode-title">Select an episode to start</h2>
           <p id="episode-meta" class="subtitle"></p>
-          <button id="edit-episode-meta" class="ghost-btn" style="font-size:11px;padding:4px 8px;margin-top:6px;display:none">✎ 编辑信息</button>
+          <button id="edit-episode-meta" class="ghost-btn" style="font-size:11px;padding:4px 8px;margin-top:6px;display:none">✎ Edit Info</button>
         </div>
         <div class="toolbar-actions">
-          <input id="episode-search" type="search" placeholder="在当前集内搜索对白">
-          <button id="clear-filters" class="ghost-btn">清空角色过滤</button>
-          <button id="theme-toggle" class="ghost-btn" title="切换主题">☀️</button>
-          <button id="open-settings" class="ghost-btn settings-toolbar-btn" title="API 设置">⚙</button>
+          <input id="episode-search" type="search" placeholder="Search dialogue in current episode">
+          <button id="clear-filters" class="ghost-btn">Clear</button>
+          <button id="theme-toggle" class="ghost-btn" title="Toggle Theme">☀️</button>
+          <button id="open-settings" class="ghost-btn settings-toolbar-btn" title="API Settings">⚙</button>
         </div>
       </header>
 
       <section class="workspace-grid">
         <section class="panel dialogue-panel">
           <div class="section-heading sticky-heading">
-            <h2>对白流</h2>
+            <h2>Dialogue</h2>
             <span id="line-count" class="muted"></span>
-            <button id="translate-all-btn" class="ghost-btn translate-all-btn" disabled>⚡ 全文翻译</button>
+            <button id="translate-all-btn" class="ghost-btn translate-all-btn" disabled>⚡ Translate All</button>
           </div>
           <div id="dialogue-list" class="dialogue-list empty-state">
-            先从左侧导入或选择剧本。
+            Import or select a script from the left.
           </div>
         </section>
 
         <aside class="right-rail">
           <section class="panel">
             <div class="section-heading">
-              <h2>全库搜索</h2>
-              <span class="muted">跨全部剧本</span>
+              <h2>Global Search</h2>
+              <span class="muted">Across all scripts</span>
             </div>
             <div class="search-box-row">
-              <input id="global-search" type="search" placeholder="搜索对白关键词或角色名">
-              <button id="run-global-search" class="ghost-btn">搜索</button>
+              <input id="global-search" type="search" placeholder="Search dialogue keywords or speaker">
+              <button id="run-global-search" class="ghost-btn">Search</button>
             </div>
-            <div id="search-results" class="search-results empty-state">输入关键词后搜索。</div>
+            <div id="search-results" class="search-results empty-state">Enter keywords to search.</div>
           </section>
 
           <section class="panel">
             <div class="section-heading">
-              <h2>角色过滤</h2>
+              <h2>Speaker Filter</h2>
               <span id="speaker-count" class="muted"></span>
             </div>
-            <div id="speaker-filters" class="speaker-filters empty-state">暂无角色</div>
+            <div id="speaker-filters" class="speaker-filters empty-state">No speakers yet</div>
             <div class="search-box-row" style="margin-top:10px; margin-bottom:8px;">
-              <button id="bulk-speaker-btn" class="ghost-btn" disabled>批量改角色名</button>
-              <button id="track-speaker-btn" class="ghost-btn" disabled>跨集追踪所选角色</button>
+              <button id="bulk-speaker-btn" class="ghost-btn" disabled>Bulk Rename Speakers</button>
+              <button id="track-speaker-btn" class="ghost-btn" disabled>Track Speaker Across Episodes</button>
             </div>
-            <div id="speaker-track-results" class="search-results empty-state">选中 1 个角色后可跨集追踪其全部台词。</div>
+            <div id="speaker-track-results" class="search-results empty-state">Select 1 speaker to track their lines across episodes.</div>
           </section>
 
           <section class="panel">
             <div class="section-heading">
-              <h2>翻译面板</h2>
+              <h2>Translation</h2>
               <span class="muted">DeepL / Ollama</span>
             </div>
             <div id="translation-panel" class="translation-panel empty-state">
-              使用“全文翻译”后，翻译结果会显示在每条台词下方。
+              After using "Translate All", results appear below each line.
             </div>
           </section>
 
           <section class="panel">
             <div class="section-heading">
-              <h2>AI 助手</h2>
-              <span id="ollama-status" class="muted">检测中…</span>
+              <h2>AI Assistant</h2>
+              <span id="ollama-status" class="muted">Checking…</span>
             </div>
             <div class="ai-model-row">
-              <span id="ollama-model-label" class="muted" style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">未选择模型</span>
-              <button id="ollama-refresh-models" class="ghost-btn" title="在设置中选择模型" onclick="document.getElementById('open-settings').click()">⚙ 模型</button>
+              <span id="ollama-model-label" class="muted" style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">No model selected</span>
+              <button id="ollama-refresh-models" class="ghost-btn" title="Select model in settings" onclick="document.getElementById('open-settings').click()">⚙ Model</button>
             </div>
-            <!-- 隐藏 select，供 JS 内部使用 -->
+            <!-- Hidden select, used internally by JS -->
             <select id="ollama-model" style="display:none"></select>
             <div class="ai-quick-actions">
-              <button class="ai-action-btn" data-ai-task="summary">📋 本集摘要</button>
-              <button class="ai-action-btn" data-ai-task="profile" id="ai-profile-btn" disabled>🎭 角色画像</button>
+              <button class="ai-action-btn" data-ai-task="summary">📋 Episode Summary</button>
+              <button class="ai-action-btn" data-ai-task="profile" id="ai-profile-btn" disabled>🎭 Character Profile</button>
             </div>
             <div id="ai-panel" class="ai-panel empty-state">
-              选中对白后点击"析"按钮，或使用上方快捷操作。
+              Select a line and click "Analyze", or use shortcuts above.
             </div>
           </section>
 
           <section class="panel">
             <div class="section-heading">
-              <h2>收藏库</h2>
-              <span id="collection-count" class="muted">0 条</span>
+              <h2>Collections</h2>
+              <span id="collection-count" class="muted">0 items</span>
             </div>
             <div class="collection-row">
               <select id="collection-select" class="model-select">
-                <option value="">选择收藏夹</option>
+                <option value="">Select Collection</option>
               </select>
-              <button id="collection-delete" class="ghost-btn" title="删除收藏夹">删</button>
+              <button id="collection-delete" class="ghost-btn" title="Delete Collection">Del</button>
             </div>
             <div class="collection-row exports-row">
-              <button id="collection-export-md" class="ghost-btn">导出 MD</button>
-              <button id="collection-export-json" class="ghost-btn">导出 JSON</button>
+              <button id="collection-export-md" class="ghost-btn">Export MD</button>
+              <button id="collection-export-json" class="ghost-btn">Export JSON</button>
             </div>
             <div class="collection-row">
-              <input id="collection-name" type="text" placeholder="新收藏夹名称">
-              <button id="collection-create" class="ghost-btn">新建</button>
+              <input id="collection-name" type="text" placeholder="New collection name">
+              <button id="collection-create" class="ghost-btn">New</button>
             </div>
             <div class="collection-row">
-              <input id="collection-filter" type="search" placeholder="按标签/关键词筛选收藏">
+              <input id="collection-filter" type="search" placeholder="Filter by tag/keyword">
             </div>
-            <div id="collection-items" class="collection-items empty-state">暂无收藏内容</div>
+            <div id="collection-items" class="collection-items empty-state">No collection items</div>
           </section>
         </aside>
       </section>
@@ -193,64 +193,64 @@
 
   <script src="/static/app.js" defer></script>
 
-  <!-- ═══════════════ 设置模态框 ═══════════════ -->
+  <!-- ═══════════════ Settings Modal ═══════════════ -->
   <div id="settings-overlay" class="settings-overlay" hidden>
-    <div class="settings-modal" role="dialog" aria-modal="true" aria-label="API 设置">
+    <div class="settings-modal" role="dialog" aria-modal="true" aria-label="API Settings">
       <div class="settings-header">
-        <h2>⚙ API 设置</h2>
-        <button id="close-settings" class="ghost-btn" title="关闭">✕</button>
+        <h2>⚙ API Settings</h2>
+        <button id="close-settings" class="ghost-btn" title="Close">✕</button>
       </div>
       <div class="settings-body">
 
         <section class="settings-section">
-          <h3>🤖 AI 模型</h3>
-          <label class="settings-label" for="s-ai-provider">选择服务商</label>
+          <h3>🤖 AI Model</h3>
+          <label class="settings-label" for="s-ai-provider">Select Provider</label>
           <select id="s-ai-provider" class="model-select">
-            <option value="">请选择</option>
+            <option value="">Please select</option>
             <option value="openai">OpenAI (GPT)</option>
             <option value="moonshot">Kimi (Moonshot)</option>
             <option value="deepseek">DeepSeek</option>
             <option value="gemini">Gemini (Google)</option>
-            <option value="custom">自定义 (OpenAI 兼容)</option>
+            <option value="custom">Custom (OpenAI-compatible)</option>
           </select>
-          <label class="settings-label" for="s-ai-base-url">Base URL（选自定义时必填）</label>
+          <label class="settings-label" for="s-ai-base-url">Base URL (required for Custom)</label>
           <input id="s-ai-base-url" type="text" placeholder="https://api.example.com/v1">
           <label class="settings-label" for="s-ai-api-key">API Key</label>
-          <input id="s-ai-api-key" type="password" placeholder="留空保持不变">
-          <label class="settings-label" style="margin-top:10px">选择模型</label>
+          <input id="s-ai-api-key" type="password" placeholder="Leave blank to keep unchanged">
+          <label class="settings-label" style="margin-top:10px">Select Model</label>
           <div class="settings-row">
             <select id="s-ai-model" class="model-select" style="flex:1">
-              <option value="">点击 ⟳ 检测模型</option>
+              <option value="">Click ⟳ to detect models</option>
             </select>
-            <button id="s-ai-refresh" class="ghost-btn" title="检测可用模型">⟳</button>
+            <button id="s-ai-refresh" class="ghost-btn" title="Detect Available Models">⟳</button>
           </div>
           <span id="s-ai-status" class="settings-hint"></span>
         </section>
 
         <section class="settings-section" hidden>
-          <h3>🌐 翻译服务</h3>
-          <label class="settings-label" for="s-trans-provider">优先 Provider</label>
+          <h3>🌐 Translation</h3>
+          <label class="settings-label" for="s-trans-provider">Preferred Provider</label>
           <select id="s-trans-provider" class="model-select">
-            <option value="ollama">Ollama（本地模型）</option>
+            <option value="ollama">Ollama (Local)</option>
           </select>
 
           <details class="settings-provider-group">
-            <summary>百度翻译 <span id="s-baidu-badge" class="settings-badge"></span></summary>
+            <summary>Baidu Translate <span id="s-baidu-badge" class="settings-badge"></span></summary>
             <div class="settings-provider-body">
               <label class="settings-label" for="s-baidu-appid">App ID</label>
-              <input id="s-baidu-appid" type="text" placeholder="留空保持不变">
+              <input id="s-baidu-appid" type="text" placeholder="Leave blank to keep unchanged">
               <label class="settings-label" for="s-baidu-secret">Secret Key</label>
-              <input id="s-baidu-secret" type="password" placeholder="留空保持不变">
+              <input id="s-baidu-secret" type="password" placeholder="Leave blank to keep unchanged">
             </div>
           </details>
 
           <details class="settings-provider-group">
-            <summary>有道智云 <span id="s-youdao-badge" class="settings-badge"></span></summary>
+            <summary>Youdao Cloud <span id="s-youdao-badge" class="settings-badge"></span></summary>
             <div class="settings-provider-body">
               <label class="settings-label" for="s-youdao-appkey">App Key</label>
-              <input id="s-youdao-appkey" type="text" placeholder="留空保持不变">
+              <input id="s-youdao-appkey" type="text" placeholder="Leave blank to keep unchanged">
               <label class="settings-label" for="s-youdao-secret">Secret Key</label>
-              <input id="s-youdao-secret" type="password" placeholder="留空保持不变">
+              <input id="s-youdao-secret" type="password" placeholder="Leave blank to keep unchanged">
             </div>
           </details>
 
@@ -258,7 +258,7 @@
             <summary>DeepL <span id="s-deepl-badge" class="settings-badge"></span></summary>
             <div class="settings-provider-body">
               <label class="settings-label" for="s-deepl-key">API Key</label>
-              <input id="s-deepl-key" type="password" placeholder="留空保持不变">
+              <input id="s-deepl-key" type="password" placeholder="Leave blank to keep unchanged">
             </div>
           </details>
         </section>
@@ -266,22 +266,22 @@
       </div>
       <div class="settings-footer">
         <span id="s-save-msg" class="settings-hint"></span>
-        <button id="s-save" class="secondary-btn">保存设置</button>
+        <button id="s-save" class="secondary-btn">Save Settings</button>
       </div>
     </div>
   </div>
 
-  <!-- ═══════════════ HUD 输入弹窗（替换系统 prompt / confirm）═══════════════ -->
+  <!-- ═══════════════ HUD Input Modal ═══════════════ -->
   <div id="hud-modal-overlay" class="hud-modal-overlay" hidden>
     <div class="hud-modal panel" role="dialog" aria-modal="true" aria-labelledby="hud-modal-title">
       <div class="hud-modal-header">
         <h3 id="hud-modal-title"></h3>
-        <button id="hud-modal-close" class="ghost-btn" title="关闭">✕</button>
+        <button id="hud-modal-close" class="ghost-btn" title="Close">✕</button>
       </div>
       <div id="hud-modal-body" class="hud-modal-body"></div>
       <div class="hud-modal-footer">
-        <button id="hud-modal-cancel" class="ghost-btn">取消</button>
-        <button id="hud-modal-confirm" class="secondary-btn">确认</button>
+        <button id="hud-modal-cancel" class="ghost-btn">Cancel</button>
+        <button id="hud-modal-confirm" class="secondary-btn">Confirm</button>
       </div>
     </div>
   </div>
