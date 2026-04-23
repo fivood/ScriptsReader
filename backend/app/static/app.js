@@ -511,7 +511,7 @@ function renderDialogue() {
         <div class="line-body">
           <p>${escapeHtml(line.text)}</p>
           ${inlineTranslation ? `<div class="inline-translation">${escapeHtml(inlineTranslation)}</div>` : ''}
-          <div class="line-actions">
+          ${state.isGuest ? '' : `<div class="line-actions">
             <button class="tiny-btn ai-btn" data-analyze-line="${line.line_index}" data-tip="Analyze" aria-label="Analyze">⟡</button>
             <button class="tiny-btn ai-btn" data-explain-line="${line.line_index}" data-tip="Explain" aria-label="Explain">⊙</button>
             <button class="tiny-btn ai-btn" data-rewrite-line="${line.line_index}" data-tip="Rewrite" aria-label="Rewrite">↻</button>
@@ -519,7 +519,7 @@ function renderDialogue() {
             <button class="tiny-btn" data-collect-line="${line.line_index}" data-tip="Collect" aria-label="Collect">★</button>
             <button class="tiny-btn" data-highlight-line="${line.line_index}" data-tip="Highlight" aria-label="Highlight">◈</button>
             <button class="tiny-btn" data-note-line="${line.line_index}" data-tip="Note" aria-label="Note">✎</button>
-          </div>
+          </div>`}
         </div>
         ${noteText ? `<p class="note-preview">NOTE: ${escapeHtml(noteText)}</p>` : ''}
       </article>
@@ -615,9 +615,13 @@ function applyGuestRestrictions() {
     '#open-settings',
     '#download-status',
     '.exports-row',
+    '#translation-panel-section',
+    '#ai-assistant-section',
+    '#collections-section',
   ];
   // Also hide labels that belong to hidden inputs
   document.querySelectorAll('label[for="catalog-search"], label[for="manual-import"]').forEach(el => { if (el) el.style.display = 'none'; });
+  if (elements.catalogStatus) elements.catalogStatus.textContent = '上传的字幕目录';
   document.querySelectorAll('.search-box-row').forEach(el => {
     if (el.querySelector('#catalog-search, #fd-show-name, #adv-springfield-slug')) el.style.display = 'none';
   });
@@ -699,26 +703,7 @@ async function saveReadingProgress(lineIndex, force = false) {
     window.clearTimeout(state.progressSaveTimer);
   }
   const runSave = async () => {
-    if (state.isGuest) {
-      const progressMap = guestLoadProgress();
-      const progress = { episode_id: episodeId, last_line: Number(lineIndex), status: 'reading' };
-      progressMap[episodeId] = progress;
-      guestSaveProgress(progressMap);
-      state.readingProgress[episodeId] = progress;
-      const show = state.library.find(s => s.seasons.some(se => se.episodes.some(ep => ep.id === episodeId)));
-      if (show) {
-        for (const season of show.seasons) {
-          const ep = season.episodes.find(item => item.id === episodeId);
-          if (ep) {
-            ep.last_line = progress.last_line;
-            ep.reading_status = progress.status;
-            break;
-          }
-        }
-      }
-      renderLibrary();
-      return;
-    }
+    if (state.isGuest) return;
     try {
       const progress = await request('/api/library/progress', {
         method: 'PUT',
@@ -814,17 +799,7 @@ function renderCollections() {
 
   document.querySelectorAll('[data-delete-collection-item]').forEach(button => {
     button.addEventListener('click', async () => {
-      if (state.isGuest) {
-        const collections = guestLoadCollections();
-        const collection = collections.find(c => c.id === state.selectedCollectionId);
-        if (collection) {
-          collection.items = collection.items.filter(i => String(i.id) !== button.dataset.deleteCollectionItem);
-          collection.item_count = collection.items.length;
-          guestSaveCollections(collections);
-        }
-        await loadCollections();
-        return;
-      }
+      if (state.isGuest) return;
       await request(`/api/collections/items/${button.dataset.deleteCollectionItem}`, { method: 'DELETE' });
       await loadCollections();
     });
@@ -838,17 +813,7 @@ function renderCollections() {
 }
 
 async function loadCollections() {
-  if (state.isGuest) {
-    state.collections = guestLoadCollections();
-    if (state.collections.length && !state.collections.some(item => item.id === state.selectedCollectionId)) {
-      state.selectedCollectionId = state.collections[0].id;
-    }
-    if (!state.collections.length) {
-      state.selectedCollectionId = null;
-    }
-    renderCollections();
-    return;
-  }
+  if (state.isGuest) { state.collections = []; renderCollections(); return; }
   state.collections = await request('/api/collections');
   if (state.collections.length && !state.collections.some(item => item.id === state.selectedCollectionId)) {
     state.selectedCollectionId = state.collections[0].id;
@@ -862,22 +827,7 @@ async function loadCollections() {
 async function createCollection() {
   const name = (elements.collectionName.value || '').trim();
   if (!name) return;
-  if (state.isGuest) {
-    const collections = guestLoadCollections();
-    const now = new Date().toISOString();
-    collections.push({
-      id: guestNextId(collections),
-      name,
-      created_at: now,
-      updated_at: now,
-      items: [],
-      item_count: 0,
-    });
-    guestSaveCollections(collections);
-    elements.collectionName.value = '';
-    await loadCollections();
-    return;
-  }
+  if (state.isGuest) return;
   await request('/api/collections', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -890,53 +840,14 @@ async function createCollection() {
 async function deleteSelectedCollection() {
   if (!state.selectedCollectionId) return;
   if (!await hudConfirm({ title: 'Delete Confirmation', message: 'Delete this collection and all its items? This cannot be undone.', confirmText: 'Delete' })) return;
-  if (state.isGuest) {
-    let collections = guestLoadCollections();
-    collections = collections.filter(c => c.id !== state.selectedCollectionId);
-    guestSaveCollections(collections);
-    await loadCollections();
-    return;
-  }
+  if (state.isGuest) return;
   await request(`/api/collections/${state.selectedCollectionId}`, { method: 'DELETE' });
   await loadCollections();
 }
 
 function exportSelectedCollection(kind) {
   if (!state.selectedCollectionId) return;
-  if (state.isGuest) {
-    const selected = selectedCollection();
-    if (!selected) return;
-    const now = new Date().toISOString().slice(0, 10);
-    if (kind === 'json') {
-      const data = {
-        name: selected.name,
-        exported_at: new Date().toISOString(),
-        items: selected.items || [],
-      };
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `collection-${selected.name}-${now}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
-    } else {
-      const lines = selected.items.map(item => {
-        const tags = item.tags && item.tags.length ? ` [${item.tags.join(', ')}]` : '';
-        const note = item.note ? `\n> ${item.note}` : '';
-        return `- **${escapeHtml(item.speaker || 'NARRATION')}**: ${escapeHtml(item.text)}${tags}\n  ${escapeHtml(item.show_name || '')} · S${String(item.season_number || 0).padStart(2, '0')} · ${escapeHtml(item.episode_code || 'EP')} · L${item.line_index}${note}`;
-      });
-      const md = `# ${escapeHtml(selected.name)}\n\n${lines.join('\n\n')}\n`;
-      const blob = new Blob([md], { type: 'text/markdown' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `collection-${selected.name}-${now}.md`;
-      a.click();
-      URL.revokeObjectURL(url);
-    }
-    return;
-  }
+  if (state.isGuest) return;
   const suffix = kind === 'json' ? 'json' : 'md';
   window.open(`/api/collections/${state.selectedCollectionId}/export.${suffix}`, '_blank');
 }
@@ -954,32 +865,7 @@ async function collectLine(lineIndex) {
   if (result === null) return;
   const tags = result.tags.split(',').map(item => item.trim()).filter(Boolean);
   const noteRaw = result.note || '';
-  if (state.isGuest) {
-    const collections = guestLoadCollections();
-    const collection = collections.find(c => c.id === state.selectedCollectionId);
-    if (!collection) return;
-    const now = new Date().toISOString();
-    collection.items.push({
-      id: guestNextId(collection.items),
-      collection_id: state.selectedCollectionId,
-      episode_id: state.currentEpisode.id,
-      line_index: lineIndex,
-      speaker: line.speaker || null,
-      text: line.text,
-      tags,
-      note: noteRaw,
-      show_name: state.currentEpisode.show_name || '',
-      season_number: state.currentEpisode.season_number || 0,
-      episode_code: state.currentEpisode.episode_code || '',
-      episode_title: state.currentEpisode.title || '',
-      created_at: now,
-    });
-    collection.item_count = collection.items.length;
-    collection.updated_at = now;
-    guestSaveCollections(collections);
-    await loadCollections();
-    return;
-  }
+  if (state.isGuest) return;
   await request('/api/collections/items', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -1002,10 +888,8 @@ async function selectEpisode(episodeId) {
   state.currentEpisode = await request(`/api/library/episodes/${episodeId}${speakerQuery}`);
   let progress;
   if (state.isGuest) {
-    const allAnnotations = guestLoadAnnotations();
-    state.annotations = allAnnotations[episodeId] || { highlights: {}, notes: {} };
-    const progressMap = guestLoadProgress();
-    progress = progressMap[episodeId] || { episode_id: episodeId, last_line: 0, status: 'unread' };
+    state.annotations = { highlights: {}, notes: {} };
+    progress = { episode_id: episodeId, last_line: 0, status: 'unread' };
     state.readingProgress[episodeId] = progress;
   } else {
     state.annotations = await request(`/api/annotations/episodes/${episodeId}`);
@@ -1021,14 +905,6 @@ async function selectEpisode(episodeId) {
   // Load any previously saved translations
   state.lineTranslations = {};
   let savedCount = 0;
-  if (state.isGuest) {
-    const savedTranslations = JSON.parse(localStorage.getItem('scriptsreader-guest-translations') || '{}');
-    const episodeTranslations = savedTranslations[state.currentEpisode.id] || [];
-    for (const t of episodeTranslations) {
-      state.lineTranslations[String(t.line_index)] = t.translation;
-      savedCount++;
-    }
-  }
   for (const line of state.currentEpisode.lines || []) {
     if (line.translation && !state.lineTranslations[String(line.line_index)]) {
       state.lineTranslations[String(line.line_index)] = line.translation;
@@ -1071,20 +947,7 @@ async function editHighlight(lineIndex) {
   const choice = await hudColorPicker({ currentColor: current });
   if (choice === null) return; // cancelled
   const valid = ['yellow', 'red', 'green', 'blue', 'purple'];
-  if (state.isGuest) {
-    const allAnnotations = guestLoadAnnotations();
-    const episodeAnno = allAnnotations[state.currentEpisode.id] || { highlights: {}, notes: {} };
-    if (valid.includes(choice)) {
-      episodeAnno.highlights[key] = choice;
-    } else {
-      delete episodeAnno.highlights[key];
-    }
-    allAnnotations[state.currentEpisode.id] = episodeAnno;
-    guestSaveAnnotations(allAnnotations);
-    state.annotations = episodeAnno;
-    renderDialogue();
-    return;
-  }
+  if (state.isGuest) return;
   const payload = {
     episode_id: state.currentEpisode.id,
     line_index: lineIndex,
@@ -1104,20 +967,7 @@ async function editNote(lineIndex) {
   const current = state.annotations.notes[key] || '';
   const content = await hudPrompt({ title: 'Add Note', label: 'Note content (leave blank to delete)', defaultValue: current, textarea: true });
   if (content === null) return;
-  if (state.isGuest) {
-    const allAnnotations = guestLoadAnnotations();
-    const episodeAnno = allAnnotations[state.currentEpisode.id] || { highlights: {}, notes: {} };
-    if (content.trim()) {
-      episodeAnno.notes[key] = content;
-    } else {
-      delete episodeAnno.notes[key];
-    }
-    allAnnotations[state.currentEpisode.id] = episodeAnno;
-    guestSaveAnnotations(allAnnotations);
-    state.annotations = episodeAnno;
-    renderDialogue();
-    return;
-  }
+  if (state.isGuest) return;
   state.annotations = await request('/api/annotations/note', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -1247,21 +1097,14 @@ async function runGlobalSearch() {
 
 async function loadLibrary() {
   state.library = await request('/api/library/shows');
-  const guestProgress = state.isGuest ? guestLoadProgress() : null;
   for (const show of state.library) {
     for (const season of show.seasons) {
       for (const episode of season.episodes) {
-        if (state.isGuest && guestProgress && guestProgress[episode.id]) {
-          state.readingProgress[episode.id] = guestProgress[episode.id];
-          episode.last_line = guestProgress[episode.id].last_line;
-          episode.reading_status = guestProgress[episode.id].status;
-        } else {
-          state.readingProgress[episode.id] = {
-            episode_id: episode.id,
-            last_line: episode.last_line || 0,
-            status: episode.reading_status || 'unread',
-          };
-        }
+        state.readingProgress[episode.id] = {
+          episode_id: episode.id,
+          last_line: episode.last_line || 0,
+          status: episode.reading_status || 'unread',
+        };
       }
     }
   }
@@ -1488,6 +1331,10 @@ function renderCatalogResults() {
 }
 
 async function loadCatalogStatus() {
+  if (state.isGuest) {
+    elements.catalogStatus.textContent = '上传的字幕目录';
+    return;
+  }
   try {
     const st = await request('/api/catalog/status');
     elements.catalogStatus.textContent = st.scraping
@@ -1626,28 +1473,7 @@ function setBadge(el, configured) {
 
 async function loadSettings() {
   if (state.isGuest) {
-    const data = guestLoadSettings();
-    if (elements.sAiProvider) elements.sAiProvider.value = data.ai_provider || '';
-    if (elements.sAiBaseUrl) elements.sAiBaseUrl.value = data.ai_base_url || '';
-    if (elements.sAiApiKey) elements.sAiApiKey.value = data.ai_api_key || '';
-    if (elements.sAiModel) {
-      elements.sAiModel.innerHTML = data.ai_model
-        ? `<option value="${escapeHtml(data.ai_model)}">${escapeHtml(data.ai_model)}</option>`
-        : '<option value="">Click ⟳ to detect models</option>';
-      elements.sAiModel.value = data.ai_model || '';
-    }
-    if (elements.ollamaModel) {
-      elements.ollamaModel.innerHTML = data.ai_model
-        ? `<option value="${escapeHtml(data.ai_model)}">${escapeHtml(data.ai_model)}</option>`
-        : '<option value="">Not configured</option>';
-      elements.ollamaModel.value = data.ai_model || '';
-    }
-    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = data.ai_model || 'Not configured';
-    state.aiProvider = data.ai_provider || '';
-    state.aiBaseUrl = data.ai_base_url || '';
-    state.aiApiKey = data.ai_api_key || '';
-    state.aiModel = data.ai_model || '';
-    state.aiConfigured = !!(data.ai_provider && data.ai_api_key && data.ai_model);
+    state.aiProvider = ''; state.aiBaseUrl = ''; state.aiApiKey = ''; state.aiModel = ''; state.aiConfigured = false;
     return;
   }
   try {
@@ -1697,16 +1523,7 @@ async function saveSettings() {
     return;
   }
 
-  if (state.isGuest) {
-    const current = guestLoadSettings();
-    const updated = { ...current, ...patch };
-    guestSaveSettings(updated);
-    elements.sSaveMsg.textContent = '✓ Saved locally';
-    await loadSettings();
-    await loadAiStatus();
-    setTimeout(() => { if (elements.sSaveMsg) elements.sSaveMsg.textContent = ''; }, 3000);
-    return;
-  }
+  if (state.isGuest) return;
 
   try {
     elements.sSave.disabled = true;
@@ -1891,11 +1708,7 @@ async function translateAll() {
         line_index: parseInt(line_index, 10),
         translation,
       }));
-      if (state.isGuest) {
-        const saved = JSON.parse(localStorage.getItem('scriptsreader-guest-translations') || '{}');
-        saved[state.currentEpisode.id] = translations;
-        localStorage.setItem('scriptsreader-guest-translations', JSON.stringify(saved));
-      } else {
+      if (!state.isGuest) {
         await request('/api/translate/save', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
