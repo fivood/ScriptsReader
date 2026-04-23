@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ScriptsReader · Browse</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div id="guest-banner" class="guest-banner">
+    <span>YOU ARE BEING WATCHED</span>
+    <button id="guest-exit" class="ghost-btn" title="Exit Guest Mode">OUT</button>
+  </div>
+
+  <div class="app-shell">
+    <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Menu">☰</button>
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+
+    <aside class="sidebar" id="sidebar">
+      <div class="brand-card">
+        <p class="eyebrow">SYSTEM // TERMINAL v0.1.0</p>
+        <h1 class="brand-ascii">SCRIPTS READER</h1>
+        <p id="app-version" class="muted" style="font-size:11px;margin-top:4px;">AWAITING INPUT...</p>
+      </div>
+
+      <section class="panel tree-panel">
+        <div class="section-heading">
+          <h2>Library</h2>
+          <span id="library-count" class="muted"></span>
+        </div>
+        <div id="library-tree" class="library-tree"></div>
+      </section>
+    </aside>
+
+    <main class="main-content">
+      <header class="toolbar panel">
+        <div>
+          <p class="eyebrow">Now Reading</p>
+          <h2 id="episode-title">Select an episode to start</h2>
+          <p id="episode-meta" class="subtitle"></p>
+        </div>
+      </header>
+
+      <section class="workspace-grid" style="grid-template-columns: 1fr;">
+        <section class="panel dialogue-panel">
+          <div class="section-heading sticky-heading">
+            <h2>Dialogue</h2>
+            <span id="line-count" class="muted"></span>
+          </div>
+          <div id="dialogue-list" class="dialogue-list empty-state">
+            Select a script from the left.
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="/static/browse.js" defer></script>
+</body>
+</html>

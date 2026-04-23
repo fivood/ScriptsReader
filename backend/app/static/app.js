@@ -19,7 +19,6 @@ const state = {
   collections: [],
   selectedCollectionId: null,
   collectionFilter: '',
-  isGuest: false,
   libraryFilterLetter: null,
 };
 
@@ -98,8 +97,6 @@ const elements = {
   collectionCreate: document.getElementById('collection-create'),
   collectionFilter: document.getElementById('collection-filter'),
   collectionItems: document.getElementById('collection-items'),
-  guestBanner: document.getElementById('guest-banner'),
-  guestExit: document.getElementById('guest-exit'),
   libraryAlphaNav: document.getElementById('library-alpha-nav'),
 };
 
@@ -350,7 +347,7 @@ function renderLibrary() {
                 <span>${episode.episode_code || 'EP'}</span>
                 <strong>${episode.title}</strong>
                 <small>${episode.line_count} lines</small>
-                ${state.isGuest ? '' : `<span class="episode-delete-btn" data-delete-episode="${episode.id}" title="Delete Episode">✕</span>`}
+                <span class="episode-delete-btn" data-delete-episode="${episode.id}" title="Delete Episode">✕</span>
               </button>
             `).join('')}
           </div>
@@ -506,12 +503,12 @@ function renderDialogue() {
       <article class="dialogue-line${focused} ${highlightColor ? `hl-${highlightColor}` : ''}${isSubtitle ? ' subtitle-line' : ''}" data-line-index="${line.line_index}">
         <div class="speaker-tag ${speakerColor(speaker)}">
           <span class="speaker-name">${speaker}</span>
-          ${state.isGuest ? '' : `<button class="speaker-edit-btn" data-edit-speaker="${line.line_index}" title="Edit Speaker">✎</button>`}
+          <button class="speaker-edit-btn" data-edit-speaker="${line.line_index}" title="Edit Speaker">✎</button>
         </div>
         <div class="line-body">
           <p>${escapeHtml(line.text)}</p>
           ${inlineTranslation ? `<div class="inline-translation">${escapeHtml(inlineTranslation)}</div>` : ''}
-          ${state.isGuest ? '' : `<div class="line-actions">
+          <div class="line-actions">
             <button class="tiny-btn ai-btn" data-analyze-line="${line.line_index}" data-tip="Analyze" aria-label="Analyze">⟡</button>
             <button class="tiny-btn ai-btn" data-explain-line="${line.line_index}" data-tip="Explain" aria-label="Explain">⊙</button>
             <button class="tiny-btn ai-btn" data-rewrite-line="${line.line_index}" data-tip="Rewrite" aria-label="Rewrite">↻</button>
@@ -519,7 +516,7 @@ function renderDialogue() {
             <button class="tiny-btn" data-collect-line="${line.line_index}" data-tip="Collect" aria-label="Collect">★</button>
             <button class="tiny-btn" data-highlight-line="${line.line_index}" data-tip="Highlight" aria-label="Highlight">◈</button>
             <button class="tiny-btn" data-note-line="${line.line_index}" data-tip="Note" aria-label="Note">✎</button>
-          </div>`}
+          </div>
         </div>
         ${noteText ? `<p class="note-preview">NOTE: ${escapeHtml(noteText)}</p>` : ''}
       </article>
@@ -568,133 +565,6 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// ── Guest Mode helpers ──────────────────────────────────────────────────
-
-function checkGuestMode() {
-  state.isGuest = localStorage.getItem('scriptsreader-guest') === '1' || document.cookie.includes('sr_guest=1');
-  if (state.isGuest) {
-    applyGuestRestrictions();
-  }
-}
-
-function exitGuestMode() {
-  localStorage.removeItem('scriptsreader-guest');
-  document.cookie = 'sr_guest=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-  window.location.href = '/login';
-}
-
-function applyGuestRestrictions() {
-  if (elements.guestBanner) {
-    elements.guestBanner.hidden = false;
-  }
-  if (elements.guestExit) {
-    elements.guestExit.addEventListener('click', exitGuestMode);
-  }
-  // Hide upload / download / rebuild / translate / AI / collection controls
-  const hideSelectors = [
-    '#rebuild-library',
-    '#manual-import',
-    '.upload-box',
-    '#refresh-catalog',
-    '#catalog-search',
-    '#run-catalog-search',
-    '.advanced-toggle',
-    '#fd-download',
-    '#adv-springfield-download',
-    '#fd-index-url',
-    '#fd-show-name',
-    '#adv-springfield-slug',
-    '#translate-all-btn',
-    '.ai-action-btn',
-    '#ollama-refresh-models',
-    '#collection-create',
-    '#collection-delete',
-    '#collection-export-md',
-    '#collection-export-json',
-    '#track-speaker-btn',
-    '#open-settings',
-    '#download-status',
-    '.exports-row',
-    '#translation-panel-section',
-    '#ai-assistant-section',
-    '#collections-section',
-  ];
-  // Also hide labels that belong to hidden inputs
-  document.querySelectorAll('label[for="catalog-search"], label[for="manual-import"]').forEach(el => { if (el) el.style.display = 'none'; });
-  if (elements.catalogStatus) elements.catalogStatus.textContent = '上传的字幕目录';
-  document.querySelectorAll('.search-box-row').forEach(el => {
-    if (el.querySelector('#catalog-search, #fd-show-name, #adv-springfield-slug')) el.style.display = 'none';
-  });
-  document.querySelectorAll('.download-form').forEach(el => { if (el) el.style.display = 'none'; });
-  hideSelectors.forEach(sel => {
-    document.querySelectorAll(sel).forEach(el => {
-      if (el) el.style.display = 'none';
-    });
-  });
-  // Hide edit-related buttons (they are toggled dynamically, handled in render functions)
-  if (elements.editEpisodeMetaBtn) elements.editEpisodeMetaBtn.style.display = 'none';
-  if (elements.bulkSpeakerBtn) elements.bulkSpeakerBtn.style.display = 'none';
-  if (elements.openSettings) elements.openSettings.style.display = 'none';
-}
-
-// ── Guest localStorage helpers ──────────────────────────────────────────
-
-const GUEST_LS_KEYS = {
-  collections: 'scriptsreader-guest-collections',
-  settings: 'scriptsreader-guest-settings',
-  progress: 'scriptsreader-guest-progress',
-  annotations: 'scriptsreader-guest-annotations',
-};
-
-function guestLoadCollections() {
-  try {
-    const raw = localStorage.getItem(GUEST_LS_KEYS.collections);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch { return []; }
-}
-
-function guestSaveCollections(collections) {
-  localStorage.setItem(GUEST_LS_KEYS.collections, JSON.stringify(collections));
-}
-
-function guestLoadSettings() {
-  try {
-    const raw = localStorage.getItem(GUEST_LS_KEYS.settings);
-    return raw ? JSON.parse(raw) : {};
-  } catch { return {}; }
-}
-
-function guestSaveSettings(settings) {
-  localStorage.setItem(GUEST_LS_KEYS.settings, JSON.stringify(settings));
-}
-
-function guestLoadProgress() {
-  try {
-    const raw = localStorage.getItem(GUEST_LS_KEYS.progress);
-    return raw ? JSON.parse(raw) : {};
-  } catch { return {}; }
-}
-
-function guestSaveProgress(progress) {
-  localStorage.setItem(GUEST_LS_KEYS.progress, JSON.stringify(progress));
-}
-
-function guestLoadAnnotations() {
-  try {
-    const raw = localStorage.getItem(GUEST_LS_KEYS.annotations);
-    return raw ? JSON.parse(raw) : { highlights: {}, notes: {} };
-  } catch { return { highlights: {}, notes: {} }; }
-}
-
-function guestSaveAnnotations(annotations) {
-  localStorage.setItem(GUEST_LS_KEYS.annotations, JSON.stringify(annotations));
-}
-
-function guestNextId(items) {
-  return items.length ? Math.max(...items.map(i => i.id)) + 1 : 1;
-}
 
 async function saveReadingProgress(lineIndex, force = false) {
   if (!state.currentEpisode || !lineIndex) return;
@@ -703,7 +573,6 @@ async function saveReadingProgress(lineIndex, force = false) {
     window.clearTimeout(state.progressSaveTimer);
   }
   const runSave = async () => {
-    if (state.isGuest) return;
     try {
       const progress = await request('/api/library/progress', {
         method: 'PUT',
@@ -799,7 +668,6 @@ function renderCollections() {
 
   document.querySelectorAll('[data-delete-collection-item]').forEach(button => {
     button.addEventListener('click', async () => {
-      if (state.isGuest) return;
       await request(`/api/collections/items/${button.dataset.deleteCollectionItem}`, { method: 'DELETE' });
       await loadCollections();
     });
@@ -813,7 +681,6 @@ function renderCollections() {
 }
 
 async function loadCollections() {
-  if (state.isGuest) { state.collections = []; renderCollections(); return; }
   state.collections = await request('/api/collections');
   if (state.collections.length && !state.collections.some(item => item.id === state.selectedCollectionId)) {
     state.selectedCollectionId = state.collections[0].id;
@@ -827,7 +694,6 @@ async function loadCollections() {
 async function createCollection() {
   const name = (elements.collectionName.value || '').trim();
   if (!name) return;
-  if (state.isGuest) return;
   await request('/api/collections', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -840,14 +706,12 @@ async function createCollection() {
 async function deleteSelectedCollection() {
   if (!state.selectedCollectionId) return;
   if (!await hudConfirm({ title: 'Delete Confirmation', message: 'Delete this collection and all its items? This cannot be undone.', confirmText: 'Delete' })) return;
-  if (state.isGuest) return;
   await request(`/api/collections/${state.selectedCollectionId}`, { method: 'DELETE' });
   await loadCollections();
 }
 
 function exportSelectedCollection(kind) {
   if (!state.selectedCollectionId) return;
-  if (state.isGuest) return;
   const suffix = kind === 'json' ? 'json' : 'md';
   window.open(`/api/collections/${state.selectedCollectionId}/export.${suffix}`, '_blank');
 }
@@ -865,7 +729,6 @@ async function collectLine(lineIndex) {
   if (result === null) return;
   const tags = result.tags.split(',').map(item => item.trim()).filter(Boolean);
   const noteRaw = result.note || '';
-  if (state.isGuest) return;
   await request('/api/collections/items', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -886,22 +749,15 @@ async function selectEpisode(episodeId) {
   state.selectedEpisodeId = episodeId;
   const speakerQuery = state.selectedSpeakers.size ? `?speakers=${encodeURIComponent([...state.selectedSpeakers].join(','))}` : '';
   state.currentEpisode = await request(`/api/library/episodes/${episodeId}${speakerQuery}`);
-  let progress;
-  if (state.isGuest) {
-    state.annotations = { highlights: {}, notes: {} };
-    progress = { episode_id: episodeId, last_line: 0, status: 'unread' };
-    state.readingProgress[episodeId] = progress;
-  } else {
-    state.annotations = await request(`/api/annotations/episodes/${episodeId}`);
-    progress = await request(`/api/library/progress/${episodeId}`);
-    state.readingProgress[episodeId] = progress;
-  }
+  state.annotations = await request(`/api/annotations/episodes/${episodeId}`);
+  const progress = await request(`/api/library/progress/${episodeId}`);
+  state.readingProgress[episodeId] = progress;
   state.focusedLineIndex = progress.last_line || null;
   state.selectedSpeakers.clear();
   renderLibrary();
   elements.episodeTitle.textContent = `${state.currentEpisode.episode_code || ''} ${state.currentEpisode.title}`.trim();
   elements.episodeMeta.textContent = `${state.currentEpisode.show_name} · Season ${String(state.currentEpisode.season_number).padStart(2, '0')} · ${state.currentEpisode.source_path}`;
-  if (elements.editEpisodeMetaBtn) elements.editEpisodeMetaBtn.style.display = state.isGuest ? 'none' : 'inline-block';
+  if (elements.editEpisodeMetaBtn) elements.editEpisodeMetaBtn.style.display = 'inline-block';
   // Load any previously saved translations
   state.lineTranslations = {};
   let savedCount = 0;
@@ -947,7 +803,6 @@ async function editHighlight(lineIndex) {
   const choice = await hudColorPicker({ currentColor: current });
   if (choice === null) return; // cancelled
   const valid = ['yellow', 'red', 'green', 'blue', 'purple'];
-  if (state.isGuest) return;
   const payload = {
     episode_id: state.currentEpisode.id,
     line_index: lineIndex,
@@ -967,7 +822,6 @@ async function editNote(lineIndex) {
   const current = state.annotations.notes[key] || '';
   const content = await hudPrompt({ title: 'Add Note', label: 'Note content (leave blank to delete)', defaultValue: current, textarea: true });
   if (content === null) return;
-  if (state.isGuest) return;
   state.annotations = await request('/api/annotations/note', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -982,7 +836,6 @@ async function editNote(lineIndex) {
 
 async function editSpeaker(lineIndex) {
   if (!state.currentEpisode) return;
-  if (state.isGuest) { elements.downloadStatus.innerHTML = '<div class="status-item warn">Guest mode: editing disabled</div>'; return; }
   const line = state.currentEpisode.lines.find(l => l.line_index === lineIndex);
   if (!line) return;
   const current = line.speaker || '';
@@ -1004,7 +857,6 @@ async function editSpeaker(lineIndex) {
 
 async function editEpisodeMeta() {
   if (!state.currentEpisode) return;
-  if (state.isGuest) { elements.downloadStatus.innerHTML = '<div class="status-item warn">Guest mode: editing disabled</div>'; return; }
   const ep = state.currentEpisode;
   const showName = await hudPrompt({ title: 'Edit Episode Info', label: 'Show Name', defaultValue: ep.show_name || '' });
   if (showName === null) return;
@@ -1036,7 +888,6 @@ async function editEpisodeMeta() {
 
 async function bulkRenameSpeaker() {
   if (!state.currentEpisode) return;
-  if (state.isGuest) { elements.downloadStatus.innerHTML = '<div class="status-item warn">Guest mode: editing disabled</div>'; return; }
   const oldName = await hudPrompt({ title: 'Bulk Rename Speakers', label: 'Old speaker name (or NARRATION)', defaultValue: 'NARRATION' });
   if (oldName === null) return;
   const newName = await hudPrompt({ title: 'Bulk Rename Speakers', label: 'New speaker name', defaultValue: '' });
@@ -1113,7 +964,6 @@ async function loadLibrary() {
 }
 
 async function rebuildLibrary() {
-  if (state.isGuest) { elements.downloadStatus.innerHTML = '<div class="status-item warn">Guest mode: cannot rebuild index</div>'; return; }
   elements.rebuildLibrary.disabled = true;
   try {
     const result = await request('/api/library/rebuild', { method: 'POST' });
@@ -1163,7 +1013,6 @@ async function loadImportsList() {
 
 async function uploadFiles(files) {
   if (!files.length) return;
-  if (state.isGuest) { elements.downloadStatus.innerHTML = '<div class="status-item warn">Guest mode: upload disabled</div>'; return; }
   const formData = new FormData();
   for (const file of files) formData.append('files', file);
   const result = await request('/api/imports/files', { method: 'POST', body: formData });
@@ -1236,7 +1085,6 @@ async function loadDownloadJobs() {
 
 // ── Catalog search & download ───────────────────────────────────────────
 async function refreshCatalog() {
-  if (state.isGuest) { elements.catalogStatus.textContent = 'Guest mode: cannot refresh catalog'; return; }
   elements.refreshCatalog.disabled = true;
   try {
     await request('/api/catalog/refresh', { method: 'POST' });
@@ -1331,10 +1179,6 @@ function renderCatalogResults() {
 }
 
 async function loadCatalogStatus() {
-  if (state.isGuest) {
-    elements.catalogStatus.textContent = '上传的字幕目录';
-    return;
-  }
   try {
     const st = await request('/api/catalog/status');
     elements.catalogStatus.textContent = st.scraping
@@ -1352,7 +1196,6 @@ async function loadCatalogStatus() {
 }
 
 async function advancedDownload(params) {
-  if (state.isGuest) { elements.downloadStatus.innerHTML = '<div class="status-item warn">Guest mode: download disabled</div>'; return; }
   try {
     await request('/api/downloads/start', {
       method: 'POST',
@@ -1472,10 +1315,6 @@ function setBadge(el, configured) {
 }
 
 async function loadSettings() {
-  if (state.isGuest) {
-    state.aiProvider = ''; state.aiBaseUrl = ''; state.aiApiKey = ''; state.aiModel = ''; state.aiConfigured = false;
-    return;
-  }
   try {
     const data = await request('/api/settings');
     if (elements.sAiProvider) elements.sAiProvider.value = data.ai_provider || '';
@@ -1522,8 +1361,6 @@ async function saveSettings() {
     setTimeout(() => { if (elements.sSaveMsg) elements.sSaveMsg.textContent = ''; }, 2000);
     return;
   }
-
-  if (state.isGuest) return;
 
   try {
     elements.sSave.disabled = true;
@@ -1708,13 +1545,11 @@ async function translateAll() {
         line_index: parseInt(line_index, 10),
         translation,
       }));
-      if (!state.isGuest) {
-        await request('/api/translate/save', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ episode_id: state.currentEpisode.id, translations }),
-        });
-      }
+      await request('/api/translate/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ episode_id: state.currentEpisode.id, translations }),
+      });
     } catch (err) {
       console.error('Failed to save translation', err);
     }
@@ -1869,7 +1704,6 @@ function wireEvents() {
 }
 
 async function bootstrap() {
-  checkGuestMode();
   loadTheme();
   wireEvents();
   loadAppVersion();

@@ -20,7 +20,7 @@ from .services.library import rebuild_library
 class TokenAuthMiddleware(BaseHTTPMiddleware):
     """If SR_AUTH_TOKEN is set, require ?token= or Authorization header."""
 
-    OPEN_PATHS = {"/api/health", "/api/version", "/login", "/guest-login"}
+    OPEN_PATHS = {"/api/health", "/api/version", "/login", "/guest-login", "/browse"}
 
     async def dispatch(self, request: Request, call_next):
         if not AUTH_TOKEN:
@@ -43,16 +43,22 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
         if not token:
             token = request.cookies.get("sr_token", "")
 
+        # Admin dashboard (/) requires valid sr_token only — guests are not allowed
+        if path == "/":
+            if token == AUTH_TOKEN:
+                return await call_next(request)
+            return RedirectResponse("/login")
+
         if token == AUTH_TOKEN:
             return await call_next(request)
 
-        # Guest mode: allow read-only requests
+        # Guest mode: allow read-only API requests
         is_guest = request.cookies.get("sr_guest", "") == "1"
         if is_guest and request.method in ("GET", "HEAD"):
             return await call_next(request)
 
         # For HTML page request, redirect to login
-        if path == "/" or "text/html" in request.headers.get("accept", ""):
+        if "text/html" in request.headers.get("accept", ""):
             return RedirectResponse("/login")
 
         return JSONResponse({"detail": "Unauthorized"}, status_code=401)
@@ -117,7 +123,7 @@ async def login_verify(request: Request):
 @app.get("/guest-login")
 def guest_login() -> RedirectResponse:
     """Enter guest mode: allow read-only browsing without a token."""
-    resp = RedirectResponse("/", status_code=303)
+    resp = RedirectResponse("/browse", status_code=303)
     resp.set_cookie("sr_guest", "1", httponly=False, samesite="lax", max_age=86400 * 30)
     return resp
 
@@ -125,3 +131,8 @@ def guest_login() -> RedirectResponse:
 @app.get("/")
 def index() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/browse")
+def browse_page() -> FileResponse:
+    return FileResponse(STATIC_DIR / "browse.html", media_type="text/html")
