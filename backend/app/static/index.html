@@ -3,17 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ScriptsReader</title>
+  <title>ScriptsReader · Admin</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
   <div class="app-shell">
     <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Menu">☰</button>
     <div id="sidebar-overlay" class="sidebar-overlay"></div>
-    <div id="guest-banner" class="guest-banner" hidden>
-      <span>YOU ARE BEING WATCHED</span>
-      <button id="guest-exit" class="ghost-btn" title="Exit Guest Mode">OUT</button>
-    </div>
+
     <aside class="sidebar" id="sidebar">
       <div class="brand-card">
         <p class="eyebrow">SYSTEM // TERMINAL v0.1.0</p>
@@ -64,8 +61,31 @@
           <small>Supports md / txt / json / srt / ass / fountain</small>
         </label>
         <input id="manual-import" type="file" multiple hidden accept=".md,.txt,.json,.srt,.ass,.fountain">
-        <div id="imports-list" class="mini-list" style="max-height:160px;"></div>
-        <div id="download-status" class="mini-list"></div>
+      </section>
+
+      <section class="panel" id="collections-section">
+        <div class="section-heading">
+          <h2>Collections</h2>
+          <span id="collection-count" class="muted">0 items</span>
+        </div>
+        <div class="collection-row">
+          <select id="collection-select" class="model-select">
+            <option value="">Select Collection</option>
+          </select>
+          <button id="collection-delete" class="ghost-btn" title="Delete Collection">Del</button>
+        </div>
+        <div class="collection-row exports-row">
+          <button id="collection-export-md" class="ghost-btn">Export MD</button>
+          <button id="collection-export-json" class="ghost-btn">Export JSON</button>
+        </div>
+        <div class="collection-row">
+          <input id="collection-name" type="text" placeholder="New collection name">
+          <button id="collection-create" class="ghost-btn">New</button>
+        </div>
+        <div class="collection-row">
+          <input id="collection-filter" type="search" placeholder="Filter by tag/keyword">
+        </div>
+        <div id="collection-items" class="collection-items empty-state">No collection items</div>
       </section>
 
       <section class="panel tree-panel">
@@ -81,112 +101,50 @@
     <main class="main-content">
       <header class="toolbar panel">
         <div>
-          <p class="eyebrow">Now Reading</p>
-          <h2 id="episode-title">Select an episode to start</h2>
-          <p id="episode-meta" class="subtitle"></p>
-          <button id="edit-episode-meta" class="ghost-btn" style="font-size:11px;padding:4px 8px;margin-top:6px;display:none">✎ Edit Info</button>
+          <p class="eyebrow">Management Console</p>
+          <h2 id="main-panel-title">System Dashboard</h2>
         </div>
         <div class="toolbar-actions">
-          <input id="episode-search" type="search" placeholder="Search dialogue in current episode">
-          <button id="clear-filters" class="ghost-btn">Clear</button>
           <button id="theme-toggle" class="ghost-btn" title="Toggle Theme">☀️</button>
           <button id="open-settings" class="ghost-btn settings-toolbar-btn" title="API Settings">⚙</button>
         </div>
       </header>
 
-      <section class="workspace-grid">
-        <section class="panel dialogue-panel">
-          <div class="section-heading sticky-heading">
-            <h2>Dialogue</h2>
-            <span id="line-count" class="muted"></span>
-            <button id="translate-all-btn" class="ghost-btn translate-all-btn" disabled>⚡ Translate All</button>
+      <!-- System Dashboard (default) -->
+      <section id="system-dashboard" class="workspace-grid" style="grid-template-columns: 1fr 1fr;">
+        <section class="panel">
+          <div class="section-heading">
+            <h2>Download Jobs</h2>
           </div>
-          <div id="dialogue-list" class="dialogue-list empty-state">
-            Import or select a script from the left.
-          </div>
+          <div id="download-status" class="mini-list"></div>
         </section>
 
-        <aside class="right-rail">
-          <section class="panel">
-            <div class="section-heading">
-              <h2>Global Search</h2>
-              <span class="muted">Across all scripts</span>
-            </div>
-            <div class="search-box-row">
-              <input id="global-search" type="search" placeholder="Search dialogue keywords or speaker">
-              <button id="run-global-search" class="ghost-btn">Search</button>
-            </div>
-            <div id="search-results" class="search-results empty-state">Enter keywords to search.</div>
-          </section>
+        <section class="panel">
+          <div class="section-heading">
+            <h2>Import Files</h2>
+          </div>
+          <div id="imports-list" class="mini-list"></div>
+        </section>
 
-          <section class="panel">
-            <div class="section-heading">
-              <h2>Speaker Filter</h2>
-              <span id="speaker-count" class="muted"></span>
-            </div>
-            <div id="speaker-filters" class="speaker-filters empty-state">No speakers yet</div>
-            <div class="search-box-row" style="margin-top:10px; margin-bottom:8px;">
-              <button id="bulk-speaker-btn" class="ghost-btn" disabled>Bulk Rename Speakers</button>
-              <button id="track-speaker-btn" class="ghost-btn" disabled>Track Speaker Across Episodes</button>
-            </div>
-            <div id="speaker-track-results" class="search-results empty-state">Select 1 speaker to track their lines across episodes.</div>
-          </section>
+        <section class="panel" style="grid-column: 1 / -1;">
+          <div class="section-heading">
+            <h2>Library Stats</h2>
+          </div>
+          <div id="library-stats" class="mini-list">
+            <div class="status-item">Loading stats...</div>
+          </div>
+        </section>
+      </section>
 
-          <section class="panel" id="translation-panel-section">
-            <div class="section-heading">
-              <h2>Translation</h2>
-              <span class="muted">DeepL / Ollama</span>
-            </div>
-            <div id="translation-panel" class="translation-panel empty-state">
-              After using "Translate All", results appear below each line.
-            </div>
-          </section>
-
-          <section class="panel" id="ai-assistant-section">
-            <div class="section-heading">
-              <h2>AI Assistant</h2>
-              <span id="ollama-status" class="muted">Checking…</span>
-            </div>
-            <div class="ai-model-row">
-              <span id="ollama-model-label" class="muted" style="flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">No model selected</span>
-              <button id="ollama-refresh-models" class="ghost-btn" title="Select model in settings" onclick="document.getElementById('open-settings').click()">⚙ Model</button>
-            </div>
-            <!-- Hidden select, used internally by JS -->
-            <select id="ollama-model" style="display:none"></select>
-            <div class="ai-quick-actions">
-              <button class="ai-action-btn" data-ai-task="summary">📋 Episode Summary</button>
-              <button class="ai-action-btn" data-ai-task="profile" id="ai-profile-btn" disabled>🎭 Character Profile</button>
-            </div>
-            <div id="ai-panel" class="ai-panel empty-state">
-              Select a line and click "Analyze", or use shortcuts above.
-            </div>
-          </section>
-
-          <section class="panel" id="collections-section">
-            <div class="section-heading">
-              <h2>Collections</h2>
-              <span id="collection-count" class="muted">0 items</span>
-            </div>
-            <div class="collection-row">
-              <select id="collection-select" class="model-select">
-                <option value="">Select Collection</option>
-              </select>
-              <button id="collection-delete" class="ghost-btn" title="Delete Collection">Del</button>
-            </div>
-            <div class="collection-row exports-row">
-              <button id="collection-export-md" class="ghost-btn">Export MD</button>
-              <button id="collection-export-json" class="ghost-btn">Export JSON</button>
-            </div>
-            <div class="collection-row">
-              <input id="collection-name" type="text" placeholder="New collection name">
-              <button id="collection-create" class="ghost-btn">New</button>
-            </div>
-            <div class="collection-row">
-              <input id="collection-filter" type="search" placeholder="Filter by tag/keyword">
-            </div>
-            <div id="collection-items" class="collection-items empty-state">No collection items</div>
-          </section>
-        </aside>
+      <!-- Episode Manager (shown when episode selected) -->
+      <section id="episode-manager" class="workspace-grid" style="grid-template-columns: 1fr; display: none;">
+        <section class="panel">
+          <div class="section-heading sticky-heading">
+            <h2>Episode Management</h2>
+            <button id="back-to-dashboard" class="ghost-btn">← Back</button>
+          </div>
+          <div id="episode-manager-body" class="mini-list"></div>
+        </section>
       </section>
     </main>
   </div>
@@ -195,7 +153,7 @@
     <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" style="color:var(--text-muted);text-decoration:none;pointer-events:auto;">京ICP备2026021551号-1</a>
   </div>
 
-  <script src="/static/app.js?v=2" defer></script>
+  <script src="/static/app.js?v=3" defer></script>
 
   <!-- ═══════════════ Settings Modal ═══════════════ -->
   <div id="settings-overlay" class="settings-overlay" hidden>

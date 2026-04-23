@@ -1,21 +1,13 @@
 const state = {
   library: [],
   selectedEpisodeId: null,
-  selectedSpeakers: new Set(),
   currentEpisode: null,
-  currentSearch: '',
-  focusedLineIndex: null,
-  annotations: { highlights: {}, notes: {} },
   catalogResults: [],
   aiConfigured: false,
   aiProvider: '',
   aiModel: '',
   aiApiKey: '',
   aiBaseUrl: '',
-  lineTranslations: {},
-  translateAllActive: false,
-  readingProgress: {},
-  progressSaveTimer: null,
   collections: [],
   selectedCollectionId: null,
   collectionFilter: '',
@@ -33,21 +25,12 @@ const elements = {
   manualImport: document.getElementById('manual-import'),
   importsList: document.getElementById('imports-list'),
   downloadStatus: document.getElementById('download-status'),
-  episodeTitle: document.getElementById('episode-title'),
-  episodeMeta: document.getElementById('episode-meta'),
-  lineCount: document.getElementById('line-count'),
-  dialogueList: document.getElementById('dialogue-list'),
-  speakerFilters: document.getElementById('speaker-filters'),
-  speakerCount: document.getElementById('speaker-count'),
-  trackSpeakerBtn: document.getElementById('track-speaker-btn'),
-  bulkSpeakerBtn: document.getElementById('bulk-speaker-btn'),
-  speakerTrackResults: document.getElementById('speaker-track-results'),
-  translationPanel: document.getElementById('translation-panel'),
-  episodeSearch: document.getElementById('episode-search'),
-  clearFilters: document.getElementById('clear-filters'),
-  globalSearch: document.getElementById('global-search'),
-  runGlobalSearch: document.getElementById('run-global-search'),
-  searchResults: document.getElementById('search-results'),
+  mainPanelTitle: document.getElementById('main-panel-title'),
+  systemDashboard: document.getElementById('system-dashboard'),
+  episodeManager: document.getElementById('episode-manager'),
+  episodeManagerBody: document.getElementById('episode-manager-body'),
+  backToDashboard: document.getElementById('back-to-dashboard'),
+  libraryStats: document.getElementById('library-stats'),
   refreshCatalog: document.getElementById('refresh-catalog'),
   catalogStatus: document.getElementById('catalog-status'),
   catalogSearch: document.getElementById('catalog-search'),
@@ -58,12 +41,6 @@ const elements = {
   fdDownload: document.getElementById('fd-download'),
   advSpringfieldSlug: document.getElementById('adv-springfield-slug'),
   advSpringfieldDownload: document.getElementById('adv-springfield-download'),
-  ollamaStatus: document.getElementById('ollama-status'),
-  ollamaModelLabel: document.getElementById('ollama-model-label'),
-  ollamaModel: document.getElementById('ollama-model'),
-  ollamaRefreshModels: document.getElementById('ollama-refresh-models'),
-  aiPanel: document.getElementById('ai-panel'),
-  aiProfileBtn: document.getElementById('ai-profile-btn'),
   // ── Settings modal ──
   openSettings: document.getElementById('open-settings'),
   themeToggle: document.getElementById('theme-toggle'),
@@ -86,8 +63,6 @@ const elements = {
   sDeeplBadge: document.getElementById('s-deepl-badge'),
   sSave: document.getElementById('s-save'),
   sSaveMsg: document.getElementById('s-save-msg'),
-  translateAllBtn: document.getElementById('translate-all-btn'),
-  editEpisodeMetaBtn: document.getElementById('edit-episode-meta'),
   collectionCount: document.getElementById('collection-count'),
   collectionSelect: document.getElementById('collection-select'),
   collectionDelete: document.getElementById('collection-delete'),
@@ -359,7 +334,7 @@ function renderLibrary() {
   document.querySelectorAll('[data-episode-id]').forEach(button => {
     button.addEventListener('click', e => {
       if (e.target.closest('.episode-delete-btn')) return;
-      selectEpisode(Number(button.dataset.episodeId));
+      showEpisodeManager(Number(button.dataset.episodeId));
     });
   });
   document.querySelectorAll('[data-delete-episode]').forEach(btn => {
@@ -372,14 +347,7 @@ function renderLibrary() {
         if (state.selectedEpisodeId === episodeId) {
           state.selectedEpisodeId = null;
           state.currentEpisode = null;
-          elements.episodeTitle.textContent = 'Select an episode to start';
-          elements.episodeMeta.textContent = '';
-          elements.dialogueList.className = 'dialogue-list empty-state';
-          elements.dialogueList.textContent = 'Import or select a script from the left.';
-          elements.speakerFilters.innerHTML = '<div class="empty-state">No speakers yet</div>';
-          elements.speakerCount.textContent = '';
-          elements.trackSpeakerBtn.disabled = true;
-          elements.bulkSpeakerBtn.disabled = true;
+          showSystemDashboard();
         }
         await loadLibrary();
         elements.downloadStatus.innerHTML = '<div class="status-item success">Episode deleted</div>';
@@ -390,228 +358,12 @@ function renderLibrary() {
   });
 }
 
-function filteredLines() {
-  if (!state.currentEpisode) return [];
-  const keyword = state.currentSearch.trim().toLowerCase();
-  return state.currentEpisode.lines.filter(line => {
-    const matchSpeaker = state.selectedSpeakers.size === 0 || line.is_direction || (line.speaker && state.selectedSpeakers.has(line.speaker));
-    const haystack = `${line.speaker || ''} ${line.text}`.toLowerCase();
-    const matchKeyword = !keyword || haystack.includes(keyword);
-    return matchSpeaker && matchKeyword;
-  });
-}
-
-function renderSpeakers() {
-  const speakers = state.currentEpisode?.speakers || [];
-  elements.speakerCount.textContent = `${speakers.length} speakers`;
-
-  if (!speakers.length) {
-    elements.speakerFilters.innerHTML = '<div class="empty-state">No speakers yet</div>';
-    return;
-  }
-
-  elements.speakerFilters.innerHTML = speakers.map(speaker => `
-    <button class="speaker-chip ${speakerColor(speaker)} ${state.selectedSpeakers.has(speaker) ? 'selected' : ''}" data-speaker="${speaker}">
-      ${speaker}
-    </button>
-  `).join('');
-
-  document.querySelectorAll('[data-speaker]').forEach(button => {
-    button.addEventListener('click', () => {
-      const name = button.dataset.speaker;
-      if (state.selectedSpeakers.has(name)) {
-        state.selectedSpeakers.delete(name);
-      } else {
-        state.selectedSpeakers.add(name);
-      }
-      renderSpeakers();
-      renderDialogue();
-    });
-  });
-  // Enable profile button when exactly 1 speaker selected
-  if (elements.aiProfileBtn) {
-    elements.aiProfileBtn.disabled = state.selectedSpeakers.size !== 1;
-  }
-  if (elements.trackSpeakerBtn) {
-    elements.trackSpeakerBtn.disabled = state.selectedSpeakers.size !== 1;
-  }
-  if (elements.bulkSpeakerBtn) {
-    elements.bulkSpeakerBtn.disabled = !state.currentEpisode;
-  }
-}
-
-async function runSpeakerTimeline() {
-  if (state.selectedSpeakers.size !== 1) {
-    elements.speakerTrackResults.className = 'search-results empty-state';
-    elements.speakerTrackResults.textContent = 'Please select 1 speaker first.';
-    return;
-  }
-  const speaker = [...state.selectedSpeakers][0];
-  const result = await request(`/api/search/speaker/${encodeURIComponent(speaker)}?limit=500`);
-  if (!result.items.length) {
-    elements.speakerTrackResults.className = 'search-results empty-state';
-    elements.speakerTrackResults.textContent = `Not found: ${speaker} cross-episode lines.`;
-    return;
-  }
-
-  elements.speakerTrackResults.className = 'search-results';
-  elements.speakerTrackResults.innerHTML = result.items.map(item => `
-    <button class="search-hit" data-track-episode="${item.episode_id}" data-track-line="${item.line_index}">
-      <div class="search-hit-meta">${escapeHtml(item.show_name)} · S${String(item.season_number).padStart(2, '0')} · ${escapeHtml(item.episode_code || item.episode_title)} · L${item.line_index}</div>
-      <div class="search-hit-line"><strong>${escapeHtml(item.speaker || 'DIRECTION')}:</strong> ${escapeHtml(item.text)}</div>
-    </button>
-  `).join('');
-
-  document.querySelectorAll('[data-track-episode]').forEach(button => {
-    button.addEventListener('click', async () => {
-      state.focusedLineIndex = Number(button.dataset.trackLine);
-      await selectEpisode(Number(button.dataset.trackEpisode));
-    });
-  });
-}
-
-function renderDialogue() {
-  const lines = filteredLines();
-  elements.lineCount.textContent = `${lines.length} lines`;
-
-  if (!lines.length) {
-    elements.dialogueList.className = 'dialogue-list empty-state';
-    elements.dialogueList.textContent = 'No dialogue matches current filter.';
-    return;
-  }
-
-  elements.dialogueList.className = 'dialogue-list';
-  elements.dialogueList.innerHTML = lines.map(line => {
-    const lineKey = String(line.line_index);
-    const highlightColor = state.annotations.highlights[lineKey] || '';
-    const noteText = state.annotations.notes[lineKey] || '';
-    const inlineTranslation = state.lineTranslations[lineKey] || '';
-    if (line.is_direction) {
-      return `
-        <article class="direction-card ${highlightColor ? `hl-${highlightColor}` : ''}">
-          <div class="direction-badge">SCENE / ACTION</div>
-          <p>${line.text}</p>
-          ${noteText ? `<p class="note-preview">NOTE: ${escapeHtml(noteText)}</p>` : ''}
-        </article>
-      `;
-    }
-
-    const speaker = line.speaker || 'NARRATION';
-    const focused = state.focusedLineIndex === line.line_index ? ' focused-line' : '';
-    const isSubtitle = line.speaker == null && line.translation;
-    return `
-      <article class="dialogue-line${focused} ${highlightColor ? `hl-${highlightColor}` : ''}${isSubtitle ? ' subtitle-line' : ''}" data-line-index="${line.line_index}">
-        <div class="speaker-tag ${speakerColor(speaker)}">
-          <span class="speaker-name">${speaker}</span>
-          <button class="speaker-edit-btn" data-edit-speaker="${line.line_index}" title="Edit Speaker">✎</button>
-        </div>
-        <div class="line-body">
-          <p>${escapeHtml(line.text)}</p>
-          ${inlineTranslation ? `<div class="inline-translation">${escapeHtml(inlineTranslation)}</div>` : ''}
-          <div class="line-actions">
-            <button class="tiny-btn ai-btn" data-analyze-line="${line.line_index}" data-tip="Analyze" aria-label="Analyze">⟡</button>
-            <button class="tiny-btn ai-btn" data-explain-line="${line.line_index}" data-tip="Explain" aria-label="Explain">⊙</button>
-            <button class="tiny-btn ai-btn" data-rewrite-line="${line.line_index}" data-tip="Rewrite" aria-label="Rewrite">↻</button>
-            <button class="tiny-btn ai-btn" data-sentiment-line="${line.line_index}" data-tip="Sentiment" aria-label="Sentiment">♡</button>
-            <button class="tiny-btn" data-collect-line="${line.line_index}" data-tip="Collect" aria-label="Collect">★</button>
-            <button class="tiny-btn" data-highlight-line="${line.line_index}" data-tip="Highlight" aria-label="Highlight">◈</button>
-            <button class="tiny-btn" data-note-line="${line.line_index}" data-tip="Note" aria-label="Note">✎</button>
-          </div>
-        </div>
-        ${noteText ? `<p class="note-preview">NOTE: ${escapeHtml(noteText)}</p>` : ''}
-      </article>
-    `;
-  }).join('');
-
-  document.querySelectorAll('[data-highlight-line]').forEach(button => {
-    button.addEventListener('click', () => editHighlight(Number(button.dataset.highlightLine)));
-  });
-  document.querySelectorAll('[data-note-line]').forEach(button => {
-    button.addEventListener('click', () => editNote(Number(button.dataset.noteLine)));
-  });
-  document.querySelectorAll('[data-collect-line]').forEach(button => {
-    button.addEventListener('click', () => collectLine(Number(button.dataset.collectLine)));
-  });
-  document.querySelectorAll('[data-analyze-line]').forEach(button => {
-    button.addEventListener('click', () => aiLineTask('analyze', Number(button.dataset.analyzeLine)));
-  });
-  document.querySelectorAll('[data-explain-line]').forEach(button => {
-    button.addEventListener('click', () => aiLineTask('explain', Number(button.dataset.explainLine)));
-  });
-  document.querySelectorAll('[data-rewrite-line]').forEach(button => {
-    button.addEventListener('click', () => aiLineTask('rewrite', Number(button.dataset.rewriteLine)));
-  });
-  document.querySelectorAll('[data-sentiment-line]').forEach(button => {
-    button.addEventListener('click', () => aiLineTask('sentiment', Number(button.dataset.sentimentLine)));
-  });
-  document.querySelectorAll('[data-line-index]').forEach(card => {
-    card.addEventListener('click', () => {
-      const lineIndex = Number(card.dataset.lineIndex);
-      state.focusedLineIndex = lineIndex;
-      saveReadingProgress(lineIndex);
-    });
-  });
-  document.querySelectorAll('[data-edit-speaker]').forEach(button => {
-    button.addEventListener('click', e => {
-      e.stopPropagation();
-      editSpeaker(Number(button.dataset.editSpeaker));
-    });
-  });
-}
-
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
 
-
-async function saveReadingProgress(lineIndex, force = false) {
-  if (!state.currentEpisode || !lineIndex) return;
-  const episodeId = state.currentEpisode.id;
-  if (!force && state.progressSaveTimer) {
-    window.clearTimeout(state.progressSaveTimer);
-  }
-  const runSave = async () => {
-    try {
-      const progress = await request('/api/library/progress', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ episode_id: episodeId, last_line: Number(lineIndex) }),
-      });
-      state.readingProgress[episodeId] = progress;
-      const show = state.library.find(s => s.seasons.some(se => se.episodes.some(ep => ep.id === episodeId)));
-      if (show) {
-        for (const season of show.seasons) {
-          const ep = season.episodes.find(item => item.id === episodeId);
-          if (ep) {
-            ep.last_line = progress.last_line;
-            ep.reading_status = progress.status;
-            break;
-          }
-        }
-      }
-      renderLibrary();
-    } catch {
-      // Ignore transient save failures.
-    }
-  };
-
-  if (force) {
-    await runSave();
-    return;
-  }
-  state.progressSaveTimer = window.setTimeout(runSave, 1200);
-}
-
-function topVisibleLineIndex() {
-  const cards = [...elements.dialogueList.querySelectorAll('[data-line-index]')];
-  if (!cards.length) return null;
-  const containerTop = elements.dialogueList.getBoundingClientRect().top;
-  const firstVisible = cards.find(card => card.getBoundingClientRect().bottom > containerTop + 8);
-  if (!firstVisible) return null;
-  return Number(firstVisible.dataset.lineIndex);
-}
 
 function selectedCollection() {
   return state.collections.find(item => item.id === state.selectedCollectionId) || null;
@@ -716,122 +468,100 @@ function exportSelectedCollection(kind) {
   window.open(`/api/collections/${state.selectedCollectionId}/export.${suffix}`, '_blank');
 }
 
-async function collectLine(lineIndex) {
-  if (!state.currentEpisode) return;
-  if (!state.selectedCollectionId) {
-    elements.collectionItems.className = 'collection-items';
-    elements.collectionItems.innerHTML = '<div class="status-item warn">Please create or select a collection first</div>';
+async function loadEpisodeForManagement(episodeId) {
+  state.selectedEpisodeId = episodeId;
+  state.currentEpisode = await request(`/api/library/episodes/${episodeId}`);
+  renderLibrary();
+}
+
+function showEpisodeManager(episodeId) {
+  loadEpisodeForManagement(episodeId).then(() => {
+    elements.systemDashboard.style.display = 'none';
+    elements.episodeManager.style.display = '';
+    elements.mainPanelTitle.textContent = 'Episode Management';
+    renderEpisodeManager();
+  });
+}
+
+function showSystemDashboard() {
+  state.selectedEpisodeId = null;
+  state.currentEpisode = null;
+  renderLibrary();
+  elements.episodeManager.style.display = 'none';
+  elements.systemDashboard.style.display = '';
+  elements.mainPanelTitle.textContent = 'System Dashboard';
+}
+
+function renderLibraryStats() {
+  let totalEpisodes = 0;
+  let totalLines = 0;
+  const allSpeakers = new Set();
+  for (const show of state.library) {
+    for (const season of show.seasons) {
+      for (const episode of season.episodes) {
+        totalEpisodes++;
+        totalLines += episode.line_count || 0;
+      }
+    }
+  }
+  // Count unique speakers across all episodes would require fetching each episode; keep it simple
+  elements.libraryStats.innerHTML = `
+    <div class="status-item">
+      <div class="job-head"><strong>Total Shows</strong><span>${state.library.length}</span></div>
+    </div>
+    <div class="status-item">
+      <div class="job-head"><strong>Total Episodes</strong><span>${totalEpisodes}</span></div>
+    </div>
+    <div class="status-item">
+      <div class="job-head"><strong>Total Lines</strong><span>${totalLines.toLocaleString()}</span></div>
+    </div>
+  `;
+}
+
+function renderEpisodeManager() {
+  const ep = state.currentEpisode;
+  if (!ep) {
+    elements.episodeManagerBody.innerHTML = '<div class="empty-state">No episode selected</div>';
     return;
   }
-  const line = state.currentEpisode.lines.find(item => item.line_index === lineIndex && !item.is_direction);
-  if (!line) return;
-  const result = await hudCollectForm();
-  if (result === null) return;
-  const tags = result.tags.split(',').map(item => item.trim()).filter(Boolean);
-  const noteRaw = result.note || '';
-  await request('/api/collections/items', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      collection_id: state.selectedCollectionId,
-      episode_id: state.currentEpisode.id,
-      line_index: lineIndex,
-      speaker: line.speaker || null,
-      text: line.text,
-      tags,
-      note: noteRaw,
-    }),
-  });
-  await loadCollections();
-}
-
-async function selectEpisode(episodeId) {
-  state.selectedEpisodeId = episodeId;
-  const speakerQuery = state.selectedSpeakers.size ? `?speakers=${encodeURIComponent([...state.selectedSpeakers].join(','))}` : '';
-  state.currentEpisode = await request(`/api/library/episodes/${episodeId}${speakerQuery}`);
-  state.annotations = await request(`/api/annotations/episodes/${episodeId}`);
-  const progress = await request(`/api/library/progress/${episodeId}`);
-  state.readingProgress[episodeId] = progress;
-  state.focusedLineIndex = progress.last_line || null;
-  state.selectedSpeakers.clear();
-  renderLibrary();
-  elements.episodeTitle.textContent = `${state.currentEpisode.episode_code || ''} ${state.currentEpisode.title}`.trim();
-  elements.episodeMeta.textContent = `${state.currentEpisode.show_name} · Season ${String(state.currentEpisode.season_number).padStart(2, '0')} · ${state.currentEpisode.source_path}`;
-  if (elements.editEpisodeMetaBtn) elements.editEpisodeMetaBtn.style.display = 'inline-block';
-  // Load any previously saved translations
-  state.lineTranslations = {};
-  let savedCount = 0;
-  for (const line of state.currentEpisode.lines || []) {
-    if (line.translation && !state.lineTranslations[String(line.line_index)]) {
-      state.lineTranslations[String(line.line_index)] = line.translation;
-      savedCount++;
+  const speakers = [...new Set((ep.lines || []).filter(l => l.speaker).map(l => l.speaker))];
+  elements.episodeManagerBody.innerHTML = `
+    <div class="status-item">
+      <div class="job-head"><strong>${escapeHtml(ep.show_name)}</strong><span class="muted">S${String(ep.season_number).padStart(2, '0')} · ${escapeHtml(ep.episode_code || 'EP')}</span></div>
+      <div style="margin-top:6px;"><strong>${escapeHtml(ep.title)}</strong></div>
+      <div class="muted" style="margin-top:4px;">${escapeHtml(ep.source_path)}</div>
+      <div style="margin-top:10px;display:flex;gap:8px;">
+        <button class="ghost-btn" id="mgr-edit-meta">✎ Edit Info</button>
+        <button class="ghost-btn" id="mgr-delete-episode" style="color:#c44;">✕ Delete Episode</button>
+      </div>
+    </div>
+    <div class="status-item">
+      <div class="job-head"><strong>Stats</strong></div>
+      <div class="muted" style="margin-top:4px;">${ep.lines ? ep.lines.length : 0} lines · ${speakers.length} speakers</div>
+    </div>
+    <div class="status-item">
+      <div class="job-head"><strong>Speakers</strong><span class="muted">${speakers.length}</span></div>
+      <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px;">
+        ${speakers.map(s => `<span class="speaker-chip ${speakerColor(s)}">${escapeHtml(s)}</span>`).join('')}
+      </div>
+      <div style="margin-top:10px;">
+        <button class="ghost-btn" id="mgr-bulk-rename">Bulk Rename Speakers</button>
+      </div>
+    </div>
+  `;
+  document.getElementById('mgr-edit-meta')?.addEventListener('click', () => editEpisodeMeta());
+  document.getElementById('mgr-delete-episode')?.addEventListener('click', async () => {
+    if (!await hudConfirm({ title: 'Delete Confirmation', message: 'Delete this episode? Related data will also be removed.', confirmText: 'Delete' })) return;
+    try {
+      await request(`/api/library/episodes/${ep.id}`, { method: 'DELETE' });
+      await loadLibrary();
+      showSystemDashboard();
+      elements.downloadStatus.innerHTML = '<div class="status-item success">Episode deleted</div>';
+    } catch (error) {
+      elements.downloadStatus.innerHTML = `<div class="status-item warn">Delete failed: ${escapeHtml(String(error.message || error))}</div>`;
     }
-  }
-  state.translateAllActive = false;
-  if (savedCount > 0) {
-    elements.translationPanel.className = 'translation-panel';
-    elements.translationPanel.innerHTML = `<div class="translation-content">Loaded ${savedCount} saved translations</div>`;
-    elements.translateAllBtn.textContent = `✓ Translated ${savedCount} lines`;
-  } else {
-    elements.translationPanel.className = 'translation-panel empty-state';
-    elements.translationPanel.textContent = 'After using "Translate All", results appear below each line.';
-    elements.translateAllBtn.textContent = '⚡ Translate All';
-  }
-  elements.translateAllBtn.disabled = false;
-  elements.translateAllBtn.classList.remove('running');
-  renderSpeakers();
-  renderDialogue();
-
-  // Close mobile sidebar after episode selection
-  const sidebarEl = document.getElementById('sidebar');
-  const overlay = document.getElementById('sidebar-overlay');
-  if (sidebarEl) sidebarEl.classList.remove('open');
-  if (overlay) overlay.classList.remove('open');
-
-  if (state.focusedLineIndex) {
-    const target = document.querySelector(`[data-line-index="${state.focusedLineIndex}"]`);
-    if (target) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  }
-}
-
-async function editHighlight(lineIndex) {
-  if (!state.currentEpisode) return;
-  const key = String(lineIndex);
-  const current = state.annotations.highlights[key] || '';
-  const choice = await hudColorPicker({ currentColor: current });
-  if (choice === null) return; // cancelled
-  const valid = ['yellow', 'red', 'green', 'blue', 'purple'];
-  const payload = {
-    episode_id: state.currentEpisode.id,
-    line_index: lineIndex,
-    color: valid.includes(choice) ? choice : null,
-  };
-  state.annotations = await request('/api/annotations/highlight', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
   });
-  renderDialogue();
-}
-
-async function editNote(lineIndex) {
-  if (!state.currentEpisode) return;
-  const key = String(lineIndex);
-  const current = state.annotations.notes[key] || '';
-  const content = await hudPrompt({ title: 'Add Note', label: 'Note content (leave blank to delete)', defaultValue: current, textarea: true });
-  if (content === null) return;
-  state.annotations = await request('/api/annotations/note', {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      episode_id: state.currentEpisode.id,
-      line_index: lineIndex,
-      content,
-    }),
-  });
-  renderDialogue();
+  document.getElementById('mgr-bulk-rename')?.addEventListener('click', () => bulkRenameSpeaker());
 }
 
 async function editSpeaker(lineIndex) {
@@ -913,37 +643,6 @@ async function bulkRenameSpeaker() {
   } catch (error) {
     elements.downloadStatus.innerHTML = `<div class="status-item warn">Update failed: ${escapeHtml(String(error.message || error))}</div>`;
   }
-}
-
-async function runGlobalSearch() {
-  const keyword = (elements.globalSearch?.value || '').trim();
-  if (!keyword) {
-    elements.searchResults.className = 'search-results empty-state';
-    elements.searchResults.textContent = 'Please enter keywords.';
-    return;
-  }
-
-  const result = await request(`/api/search/lines?q=${encodeURIComponent(keyword)}&limit=80`);
-  if (!result.items.length) {
-    elements.searchResults.className = 'search-results empty-state';
-    elements.searchResults.textContent = 'No matching dialogue found.';
-    return;
-  }
-
-  elements.searchResults.className = 'search-results';
-  elements.searchResults.innerHTML = result.items.map(item => `
-    <button class="search-hit" data-hit-episode="${item.episode_id}" data-hit-line="${item.line_index}">
-      <div class="search-hit-meta">${escapeHtml(item.show_name)} · S${String(item.season_number).padStart(2, '0')} · ${escapeHtml(item.episode_code || item.episode_title)}</div>
-      <div class="search-hit-line"><strong>${escapeHtml(item.speaker || 'DIRECTION')}:</strong> ${escapeHtml(item.text)}</div>
-    </button>
-  `).join('');
-
-  document.querySelectorAll('[data-hit-episode]').forEach(button => {
-    button.addEventListener('click', async () => {
-      state.focusedLineIndex = Number(button.dataset.hitLine);
-      await selectEpisode(Number(button.dataset.hitEpisode));
-    });
-  });
 }
 
 async function loadLibrary() {
@@ -1223,89 +922,6 @@ async function startDownloadWithCheck(showName, params) {
   return true;
 }
 
-async function loadAiStatus() {
-  const configured = state.aiConfigured && state.aiProvider && state.aiModel;
-  if (configured) {
-    elements.ollamaStatus.textContent = `✓ ${state.aiProvider} · ${state.aiModel}`;
-    elements.ollamaStatus.className = 'muted ai-online';
-    elements.ollamaStatus.title = 'AI configured';
-    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = state.aiModel;
-  } else {
-    elements.ollamaStatus.textContent = '✗ AI not configured';
-    elements.ollamaStatus.className = 'muted ai-offline';
-    elements.ollamaStatus.title = 'Configure AI provider, API Key and model in settings';
-    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = 'Not configured';
-  }
-}
-
-async function detectAiModels() {
-  if (!elements.sAiProvider || !elements.sAiApiKey) return;
-  const provider = elements.sAiProvider.value;
-  const apiKey = elements.sAiApiKey.value;
-  const baseUrl = elements.sAiBaseUrl?.value || '';
-  if (!provider) {
-    elements.sAiStatus.textContent = 'Please select a provider first';
-    return;
-  }
-  if (!apiKey) {
-    elements.sAiStatus.textContent = 'Please enter API Key first';
-    return;
-  }
-  elements.sAiStatus.textContent = 'Checking…';
-  try {
-    const models = await request(`/api/ai/models?provider=${encodeURIComponent(provider)}&api_key=${encodeURIComponent(apiKey)}&base_url=${encodeURIComponent(baseUrl)}`);
-    const opts = models.length
-      ? models.map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.name)}</option>`).join('')
-      : '<option value="">No models available</option>';
-    elements.sAiModel.innerHTML = opts;
-    elements.ollamaModel.innerHTML = opts;
-    if (models.length) {
-      const current = state.aiModel;
-      const exists = models.some(m => m.id === current);
-      const selected = exists ? current : models[0].id;
-      elements.sAiModel.value = selected;
-      elements.ollamaModel.value = selected;
-      if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = selected;
-    }
-    elements.sAiStatus.textContent = `Detected ${models.length} models`;
-  } catch (error) {
-    elements.sAiStatus.textContent = `Detection failed: ${error.message || error}`;
-  }
-}
-
-function getSelectedModel() {
-  return elements.sAiModel?.value || elements.ollamaModel.value || state.aiModel;
-}
-
-function buildSystemPrompt(task, targetLang = '中文') {
-  const prompts = {
-    translate: `You are a professional translator. Translate the dialogue line to ${targetLang}. Output ONLY the translation, no explanation.`,
-    analyze: 'You are a professional screenwriting teacher. Analyze this dialogue line in depth: what is the subtext, the dramatic tension, the character motivation, and why this line works dramatically. Answer in Chinese (简体中文), concise but insightful (3-5 bullet points).',
-    sentiment: 'You are an emotion analysis expert for screenplays. For the given dialogue line, output a single JSON object with two keys: "label" and "confidence" (0.0-1.0). Output ONLY JSON.',
-    explain: 'You are a cultural and language expert. Explain slang, idioms, cultural references, or unusual expressions in this dialogue. If none, say briefly. Answer in Chinese (简体中文).',
-    rewrite: 'You are a skilled screenwriter. Rewrite the dialogue in three tones: formal, casual, and emotionally intense. Use Chinese labels: 正式版 / 口语版 / 激烈版.',
-    profile: 'You are a screenwriting analyst. Build a brief voice profile for the character from lines provided. Answer in Chinese bullet points.',
-    summary: 'You are a professional script reader. Summarize the episode plot from provided dialogue in 3-5 Chinese sentences.',
-  };
-  return prompts[task] || prompts.analyze;
-}
-
-async function aiChat(task, content) {
-  const provider = state.aiProvider;
-  const model = state.aiModel;
-  const apiKey = state.aiApiKey;
-  const baseUrl = state.aiBaseUrl;
-  if (!provider || !apiKey || !model) {
-    return { ok: false, error: 'AI not configured. Please set up API Key and model in settings.' };
-  }
-  const result = await request('/api/ai/chat', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ provider, model, api_key: apiKey, base_url: baseUrl, task, content }),
-  });
-  return result;
-}
-
 // ── Settings helpers ──────────────────────────────────────────────────────
 
 function setBadge(el, configured) {
@@ -1326,14 +942,6 @@ async function loadSettings() {
         : '<option value="">Click ⟳ to detect models</option>';
       elements.sAiModel.value = data.ai_model || '';
     }
-    // Sync internal hidden select
-    if (elements.ollamaModel) {
-      elements.ollamaModel.innerHTML = data.ai_model
-        ? `<option value="${escapeHtml(data.ai_model)}">${escapeHtml(data.ai_model)}</option>`
-        : '<option value="">Not configured</option>';
-      elements.ollamaModel.value = data.ai_model || '';
-    }
-    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = data.ai_model || 'Not configured';
     // Update state
     state.aiProvider = data.ai_provider || '';
     state.aiBaseUrl = data.ai_base_url || '';
@@ -1392,84 +1000,6 @@ function buildLineContext(lineIndex) {
   return { line, context };
 }
 
-async function aiLineTask(task, lineIndex) {
-  if (!state.aiConfigured) { showAiResult('AI not configured. Please set up API Key and model in settings.'); return; }
-  const { line, context } = buildLineContext(lineIndex);
-  if (!line) return;
-
-  const taskLabels = { analyze: 'Analysis', explain: 'Explanation', rewrite: 'Rewrite', sentiment: 'Sentiment' };
-  showAiResult(`Processing ${taskLabels[task] || task}…`);
-
-  try {
-    const result = await aiChat(task, context);
-    if (result.ok) {
-      showAiResult(
-        `<div class="ai-result-header">${escapeHtml(taskLabels[task] || task)}</div>` +
-        `<div class="ai-result-quote">${escapeHtml(line.speaker || 'DIRECTION')}: ${escapeHtml(line.text)}</div>` +
-        `<div class="ai-result-body">${formatAiReply(result.reply)}</div>`
-      , true);
-    } else {
-      showAiResult(`Error: ${escapeHtml(result.error || 'Unknown error')}`);
-    }
-  } catch (error) {
-    showAiResult(`Request failed: ${escapeHtml(String(error.message || error))}`);
-  }
-}
-
-async function aiEpisodeTask(task) {
-  if (!state.aiConfigured) { showAiResult('AI not configured. Please set up API Key and model in settings.'); return; }
-  if (!state.currentEpisode) { showAiResult('Please select an episode first'); return; }
-
-  const taskLabels = { summary: 'Episode Summary', profile: 'Character Profile' };
-  showAiResult(`Processing ${taskLabels[task] || task}…`);
-
-  let content = '';
-  if (task === 'summary') {
-    content = state.currentEpisode.lines
-      .map(l => `${l.speaker || 'DIRECTION'}: ${l.text}`)
-      .slice(0, 200)
-      .join('\n');
-  } else if (task === 'profile') {
-    const speaker = [...state.selectedSpeakers][0];
-    if (!speaker) { showAiResult('Please select a speaker on the right first, then click Character Profile.'); return; }
-    const speakerLines = state.currentEpisode.lines
-      .filter(l => l.speaker === speaker)
-      .map(l => `${l.speaker}: ${l.text}`)
-      .slice(0, 120);
-    content = `Character: ${speaker}\n\n${speakerLines.join('\n')}`;
-  }
-
-  try {
-    const result = await aiChat(task, content);
-    if (result.ok) {
-      showAiResult(
-        `<div class="ai-result-header">${escapeHtml(taskLabels[task] || task)}</div>` +
-        `<div class="ai-result-body">${formatAiReply(result.reply)}</div>`
-      , true);
-    } else {
-      showAiResult(`Error: ${escapeHtml(result.error || 'Unknown error')}`);
-    }
-  } catch (error) {
-    showAiResult(`Request failed: ${escapeHtml(String(error.message || error))}`);
-  }
-}
-
-function showAiResult(htmlOrText, isHtml = false) {
-  elements.aiPanel.className = 'ai-panel';
-  if (isHtml) {
-    elements.aiPanel.innerHTML = htmlOrText;
-  } else {
-    elements.aiPanel.innerHTML = `<div class="status-item">${escapeHtml(htmlOrText)}</div>`;
-  }
-}
-
-function formatAiReply(text) {
-  if (!text) return '';
-  return escapeHtml(text)
-    .replace(/\n/g, '<br>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-}
-
 function loadTheme() {
   const saved = localStorage.getItem('scriptsreader-theme');
   const theme = saved || 'dark';
@@ -1487,77 +1017,6 @@ function toggleTheme() {
   if (elements.themeToggle) {
     elements.themeToggle.textContent = next === 'light' ? '🌙' : '☀️';
   }
-}
-
-async function translateAll() {
-  if (!state.currentEpisode) return;
-  if (state.translateAllActive) {
-    state.translateAllActive = false;
-    return;
-  }
-
-  const allLines = state.currentEpisode.lines.filter(l => !l.is_direction && l.text.trim());
-  const total = allLines.length;
-  let done = 0;
-
-  state.translateAllActive = true;
-  elements.translateAllBtn.textContent = `⏹ Stop (0/${total})`;
-  elements.translateAllBtn.classList.add('running');
-
-  for (const line of allLines) {
-    if (!state.translateAllActive) break;
-    try {
-      const result = await request('/api/translate/preview', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: line.text, context_before: [], context_after: [] }),
-      });
-      const translation = result.translation || result.message || '';
-      if (translation) {
-        state.lineTranslations[String(line.line_index)] = translation;
-        const article = elements.dialogueList.querySelector(`[data-line-index="${line.line_index}"]`);
-        if (article) {
-          let translDiv = article.querySelector('.inline-translation');
-          if (!translDiv) {
-            translDiv = document.createElement('div');
-            translDiv.className = 'inline-translation';
-            const linePara = article.querySelector('.line-body p');
-            if (linePara) linePara.after(translDiv);
-          }
-          translDiv.textContent = translation;
-        }
-      }
-    } catch (_) { /* silently skip */ }
-    done++;
-    if (state.translateAllActive) {
-      elements.translateAllBtn.textContent = `⏹ Stop (${done}/${total})`;
-    }
-  }
-
-  state.translateAllActive = false;
-  elements.translateAllBtn.classList.remove('running');
-  const stopped = done < total;
-
-  // Auto-save translations to the server (or localStorage for guests)
-  if (Object.keys(state.lineTranslations).length > 0) {
-    try {
-      const translations = Object.entries(state.lineTranslations).map(([line_index, translation]) => ({
-        line_index: parseInt(line_index, 10),
-        translation,
-      }));
-      await request('/api/translate/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ episode_id: state.currentEpisode.id, translations }),
-      });
-    } catch (err) {
-      console.error('Failed to save translation', err);
-    }
-  }
-
-  elements.translateAllBtn.textContent = stopped
-    ? `⚡ Continue (${done}/${total})`
-    : `✓ Translated ${total} lines`;
 }
 
 function wireEvents() {
@@ -1588,23 +1047,6 @@ function wireEvents() {
   elements.librarySearch.addEventListener('input', renderLibrary);
   elements.rebuildLibrary.addEventListener('click', rebuildLibrary);
   elements.manualImport.addEventListener('change', event => uploadFiles(event.target.files));
-  elements.episodeSearch.addEventListener('input', event => {
-    state.currentSearch = event.target.value;
-    renderDialogue();
-  });
-  elements.clearFilters.addEventListener('click', () => {
-    state.selectedSpeakers.clear();
-    renderSpeakers();
-    renderDialogue();
-    elements.speakerTrackResults.className = 'search-results empty-state';
-    elements.speakerTrackResults.textContent = 'Select 1 speaker to track their lines across episodes.';
-  });
-  elements.runGlobalSearch.addEventListener('click', runGlobalSearch);
-  elements.globalSearch.addEventListener('keydown', event => {
-    if (event.key === 'Enter') {
-      runGlobalSearch();
-    }
-  });
   elements.refreshCatalog.addEventListener('click', refreshCatalog);
   elements.runCatalogSearch.addEventListener('click', searchCatalog);
   elements.catalogSearch.addEventListener('keydown', event => {
@@ -1635,7 +1077,6 @@ function wireEvents() {
       all_seasons: true,
     });
   });
-  elements.translateAllBtn.addEventListener('click', translateAll);
   elements.collectionCreate.addEventListener('click', createCollection);
   elements.collectionDelete.addEventListener('click', deleteSelectedCollection);
   elements.collectionExportMd.addEventListener('click', () => exportSelectedCollection('md'));
@@ -1650,23 +1091,6 @@ function wireEvents() {
   elements.collectionFilter.addEventListener('input', event => {
     state.collectionFilter = event.target.value || '';
     renderCollections();
-  });
-  elements.trackSpeakerBtn.addEventListener('click', runSpeakerTimeline);
-  if (elements.bulkSpeakerBtn) elements.bulkSpeakerBtn.addEventListener('click', bulkRenameSpeaker);
-  if (elements.editEpisodeMetaBtn) elements.editEpisodeMetaBtn.addEventListener('click', editEpisodeMeta);
-  elements.dialogueList.addEventListener('scroll', () => {
-    const idx = topVisibleLineIndex();
-    if (idx) saveReadingProgress(idx);
-  });
-  window.addEventListener('beforeunload', () => {
-    const idx = topVisibleLineIndex() || state.focusedLineIndex;
-    if (idx) saveReadingProgress(idx, true);
-  });
-  elements.ollamaRefreshModels.addEventListener('click', () => elements.openSettings.click());
-  elements.ollamaModel.addEventListener('change', () => {
-    state.aiModel = elements.ollamaModel.value;
-    if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = elements.ollamaModel.value || 'No model selected';
-    if (elements.sAiModel) elements.sAiModel.value = elements.ollamaModel.value;
   });
   if (elements.themeToggle) {
     elements.themeToggle.addEventListener('click', toggleTheme);
@@ -1693,14 +1117,12 @@ function wireEvents() {
   if (elements.sAiModel) {
     elements.sAiModel.addEventListener('change', () => {
       state.aiModel = elements.sAiModel.value;
-      elements.ollamaModel.value = elements.sAiModel.value;
-      if (elements.ollamaModelLabel) elements.ollamaModelLabel.textContent = elements.sAiModel.value || 'No model selected';
     });
   }
   elements.sSave.addEventListener('click', saveSettings);
-  document.querySelectorAll('[data-ai-task]').forEach(btn => {
-    btn.addEventListener('click', () => aiEpisodeTask(btn.dataset.aiTask));
-  });
+  if (elements.backToDashboard) {
+    elements.backToDashboard.addEventListener('click', showSystemDashboard);
+  }
 }
 
 async function bootstrap() {
@@ -1712,11 +1134,15 @@ async function bootstrap() {
   await loadCollections();
   await loadDownloadJobs();
   await loadImportsList();
-  await loadAiStatus();
-  window.setInterval(loadDownloadJobs, 2500);
+  renderLibraryStats();
+  window.setInterval(async () => {
+    await loadDownloadJobs();
+    if (state.selectedEpisodeId === null) {
+      renderLibraryStats();
+    }
+  }, 2500);
 }
 
 bootstrap().catch(error => {
-  elements.dialogueList.className = 'dialogue-list empty-state';
-  elements.dialogueList.textContent = `Initialization failed: ${error.message || error}`;
+  console.error('Initialization failed:', error);
 });
