@@ -8,6 +8,7 @@ from ..services.library import (
     bulk_update_lines,
     delete_episode,
     fetch_episode_content,
+    fetch_guest_library_tree,
     fetch_library_tree,
     fetch_reading_progress,
     rebuild_library,
@@ -39,6 +40,11 @@ router = APIRouter(prefix="/api/library", tags=["library"])
 @router.get("/shows")
 def get_shows() -> list[dict]:
     return fetch_library_tree()
+
+
+@router.get("/guest-shows")
+def get_guest_shows() -> list[dict]:
+    return fetch_guest_library_tree()
 
 
 @router.post("/rebuild")

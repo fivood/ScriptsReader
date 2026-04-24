@@ -73,6 +73,9 @@ const elements = {
   collectionFilter: document.getElementById('collection-filter'),
   collectionItems: document.getElementById('collection-items'),
   libraryAlphaNav: document.getElementById('library-alpha-nav'),
+  guestVisibilityList: document.getElementById('guest-visibility-list'),
+  guestVisibilitySave: document.getElementById('guest-visibility-save'),
+  guestVisibilityMsg: document.getElementById('guest-visibility-msg'),
 };
 
 async function request(url, options = {}) {
@@ -1123,6 +1126,9 @@ function wireEvents() {
   if (elements.backToDashboard) {
     elements.backToDashboard.addEventListener('click', showSystemDashboard);
   }
+  if (elements.guestVisibilitySave) {
+    elements.guestVisibilitySave.addEventListener('click', saveGuestVisibility);
+  }
 }
 
 async function bootstrap() {
@@ -1135,12 +1141,57 @@ async function bootstrap() {
   await loadDownloadJobs();
   await loadImportsList();
   renderLibraryStats();
+  await loadGuestVisibility();
   window.setInterval(async () => {
     await loadDownloadJobs();
     if (state.selectedEpisodeId === null) {
       renderLibraryStats();
     }
   }, 2500);
+}
+
+async function loadGuestVisibility() {
+  if (!elements.guestVisibilityList) return;
+  try {
+    const shows = await request('/api/guest-visible-shows');
+    if (!shows.length) {
+      elements.guestVisibilityList.innerHTML = '<div class="empty-state">No shows in library</div>';
+      return;
+    }
+    elements.guestVisibilityList.innerHTML = shows.map(item => `
+      <label style="display:flex;align-items:center;gap:8px;padding:4px 0;cursor:pointer;font-size:13px;">
+        <input type="checkbox" class="gv-checkbox" value="${escapeAttr(item.name)}" ${item.visible ? 'checked' : ''}>
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(item.name)}</span>
+      </label>
+    `).join('');
+  } catch (error) {
+    elements.guestVisibilityList.innerHTML = `<div class="status-item warn">Load failed: ${escapeHtml(String(error.message || error))}</div>`;
+  }
+}
+
+async function saveGuestVisibility() {
+  if (!elements.guestVisibilityList) return;
+  const checkboxes = elements.guestVisibilityList.querySelectorAll('.gv-checkbox');
+  const showNames = [...checkboxes].filter(cb => cb.checked).map(cb => cb.value);
+  elements.guestVisibilitySave.disabled = true;
+  try {
+    await request('/api/guest-visible-shows', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ show_names: showNames }),
+    });
+    if (elements.guestVisibilityMsg) {
+      elements.guestVisibilityMsg.textContent = '✓ Saved';
+      setTimeout(() => { if (elements.guestVisibilityMsg) elements.guestVisibilityMsg.textContent = ''; }, 2000);
+    }
+  } catch (error) {
+    if (elements.guestVisibilityMsg) {
+      elements.guestVisibilityMsg.textContent = `✗ Save failed: ${escapeHtml(String(error.message || error))}`;
+      setTimeout(() => { if (elements.guestVisibilityMsg) elements.guestVisibilityMsg.textContent = ''; }, 3000);
+    }
+  } finally {
+    elements.guestVisibilitySave.disabled = false;
+  }
 }
 
 bootstrap().catch(error => {

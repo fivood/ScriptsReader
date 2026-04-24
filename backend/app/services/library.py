@@ -140,6 +140,12 @@ def rebuild_library() -> dict[str, int]:
                 _store_episode(conn, episode, source)
                 imported_episodes += 1
 
+        # Sync all shows to guest visibility so guests can browse by default.
+        conn.execute("DELETE FROM guest_visible_shows")
+        conn.execute(
+            "INSERT INTO guest_visible_shows(show_name) SELECT name FROM shows"
+        )
+
     return {"files": len(files), "episodes": imported_episodes}
 
 
@@ -253,6 +259,80 @@ def fetch_library_tree() -> list[dict]:
         shows = conn.execute(
             "SELECT id, name FROM shows ORDER BY name COLLATE NOCASE"
         ).fetchall()
+        payload: list[dict] = []
+        for show in shows:
+            seasons = conn.execute(
+                "SELECT id, season_number FROM seasons WHERE show_id = ? ORDER BY season_number",
+                (show["id"],),
+            ).fetchall()
+            season_items = []
+            for season in seasons:
+                episodes = conn.execute(
+                    """
+                    SELECT episodes.id, episodes.episode_code, episodes.title,
+                           COUNT(dialogue_lines.id) AS line_count,
+                           COALESCE(reading_progress.last_line, 0) AS last_line
+                    FROM episodes
+                    LEFT JOIN dialogue_lines ON dialogue_lines.episode_id = episodes.id
+                    LEFT JOIN reading_progress ON reading_progress.episode_id = episodes.id
+                    WHERE episodes.season_id = ?
+                    GROUP BY episodes.id
+                    ORDER BY episodes.episode_code IS NULL, episodes.episode_code, episodes.title
+                    """,
+                    (season["id"],),
+                ).fetchall()
+                season_items.append(
+                    {
+                        "id": int(season["id"]),
+                        "season_number": int(season["season_number"]),
+                        "episodes": [
+                            {
+                                "id": int(episode["id"]),
+                                "episode_code": episode["episode_code"],
+                                "title": episode["title"],
+                                "line_count": int(episode["line_count"]),
+                                "reading_status": (
+                                    "finished"
+                                    if int(episode["line_count"]) > 0 and int(episode["last_line"] or 0) >= int(episode["line_count"])
+                                    else "in_progress"
+                                    if int(episode["last_line"] or 0) > 0
+                                    else "unread"
+                                ),
+                                "last_line": int(episode["last_line"] or 0),
+                            }
+                            for episode in episodes
+                        ],
+                    }
+                )
+            payload.append(
+                {
+                    "id": int(show["id"]),
+                    "name": show["name"],
+                    "seasons": season_items,
+                }
+            )
+    return payload
+
+
+def fetch_guest_library_tree() -> list[dict]:
+    init_db()
+    with get_connection() as conn:
+        # If no visibility restrictions are configured, show everything.
+        visible_count = conn.execute(
+            "SELECT COUNT(1) AS c FROM guest_visible_shows"
+        ).fetchone()["c"]
+        if visible_count:
+            shows = conn.execute(
+                """
+                SELECT id, name FROM shows
+                WHERE name IN (SELECT show_name FROM guest_visible_shows)
+                ORDER BY name COLLATE NOCASE
+                """
+            ).fetchall()
+        else:
+            shows = conn.execute(
+                "SELECT id, name FROM shows ORDER BY name COLLATE NOCASE"
+            ).fetchall()
         payload: list[dict] = []
         for show in shows:
             seasons = conn.execute(

@@ -4,10 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ScriptsReader · Admin</title>
+  <link rel="icon" href="/static/favicon.ico">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-  <div class="app-shell">
+  <div class="app-shell" style="padding-bottom:28px;">
     <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Menu">☰</button>
     <div id="sidebar-overlay" class="sidebar-overlay"></div>
 
@@ -63,6 +64,18 @@
         <input id="manual-import" type="file" multiple hidden accept=".md,.txt,.json,.srt,.ass,.fountain">
       </section>
 
+      <section class="panel compact-panel">
+        <div class="section-heading">
+          <h2>Guest Visibility</h2>
+          <span class="muted">Guest can see</span>
+        </div>
+        <div id="guest-visibility-list" class="mini-list" style="max-height:160px;">
+          <div class="empty-state">Loading...</div>
+        </div>
+        <button id="guest-visibility-save" class="secondary-btn" style="margin-top:10px;width:100%;">Save Visibility</button>
+        <span id="guest-visibility-msg" class="settings-hint" style="margin-top:6px;display:block;text-align:center;"></span>
+      </section>
+
       <section class="panel" id="collections-section">
         <div class="section-heading">
           <h2>Collections</h2>
@@ -105,6 +118,7 @@
           <h2 id="main-panel-title">System Dashboard</h2>
         </div>
         <div class="toolbar-actions">
+          <button id="goto-browse" class="ghost-btn" title="Guest Browse" onclick="location.href='/browse'">👁</button>
           <button id="theme-toggle" class="ghost-btn" title="Toggle Theme">☀️</button>
           <button id="open-settings" class="ghost-btn settings-toolbar-btn" title="API Settings">⚙</button>
         </div>
@@ -149,7 +163,7 @@
     </main>
   </div>
 
-  <div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:11px;z-index:100;pointer-events:none;">
+  <div style="position:fixed;bottom:0;left:0;width:100%;text-align:center;font-size:11px;z-index:100;pointer-events:none;height:24px;line-height:24px;background:var(--bg);">
     <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer" style="color:var(--text-muted);text-decoration:none;pointer-events:auto;">京ICP备2026021551号-1</a>
   </div>
 

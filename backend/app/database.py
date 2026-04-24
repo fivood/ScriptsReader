@@ -98,6 +98,10 @@ CREATE INDEX IF NOT EXISTS idx_notes_episode_id ON notes(episode_id);
 CREATE INDEX IF NOT EXISTS idx_reading_progress_episode_id ON reading_progress(episode_id);
 CREATE INDEX IF NOT EXISTS idx_collections_name ON collections(name);
 CREATE INDEX IF NOT EXISTS idx_collection_items_collection_id ON collection_items(collection_id);
+
+CREATE TABLE IF NOT EXISTS guest_visible_shows (
+    show_name TEXT PRIMARY KEY
+);
 """
 
 
@@ -124,3 +128,5 @@ def init_db() -> None:
         ]
         if "translation" not in columns:
             conn.execute("ALTER TABLE dialogue_lines ADD COLUMN translation TEXT")
+        # Default guest-visible show
+        conn.execute("INSERT OR IGNORE INTO guest_visible_shows(show_name) VALUES('Person of Interest')")

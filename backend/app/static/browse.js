@@ -142,7 +142,7 @@ function renderDialogue() {
 }
 
 async function loadLibrary() {
-  state.library = await request('/api/library/shows');
+  state.library = await request('/api/library/guest-shows');
   renderLibrary();
 }
 

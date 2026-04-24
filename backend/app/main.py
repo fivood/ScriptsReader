@@ -11,7 +11,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from .config import AUTH_TOKEN, STATIC_DIR, get_version
 from .database import init_db
-from .routers import ai, annotations, catalog, collections, downloads, imports, scripts, search, settings, translate
+from .routers import ai, annotations, catalog, collections, downloads, guest_visibility, imports, scripts, search, settings, translate
 from .services.library import rebuild_library
 
 
@@ -43,8 +43,8 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
         if not token:
             token = request.cookies.get("sr_token", "")
 
-        # Admin dashboard (/) requires valid sr_token only — guests are not allowed
-        if path == "/":
+        # Admin dashboard (/admin) requires valid sr_token only — guests are not allowed
+        if path == "/admin":
             if token == AUTH_TOKEN:
                 return await call_next(request)
             return RedirectResponse("/login")
@@ -84,6 +84,7 @@ app.include_router(catalog.router)
 app.include_router(ai.router)
 app.include_router(collections.router)
 app.include_router(settings.router)
+app.include_router(guest_visibility.router)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
@@ -114,7 +115,7 @@ async def login_verify(request: Request):
     form = await request.form()
     token = str(form.get("token", "")).strip()
     if token == AUTH_TOKEN:
-        resp = RedirectResponse("/", status_code=303)
+        resp = RedirectResponse("/admin", status_code=303)
         resp.set_cookie("sr_token", token, httponly=True, samesite="lax", max_age=86400 * 30)
         return resp
     return FileResponse(STATIC_DIR / "login.html", media_type="text/html")
@@ -129,7 +130,15 @@ def guest_login() -> RedirectResponse:
 
 
 @app.get("/")
-def index() -> FileResponse:
+def index(request: Request) -> RedirectResponse:
+    token = request.cookies.get("sr_token", "")
+    if token == AUTH_TOKEN:
+        return RedirectResponse("/admin")
+    return RedirectResponse("/login")
+
+
+@app.get("/admin")
+def admin_page() -> FileResponse:
     return FileResponse(STATIC_DIR / "index.html")
 
 
