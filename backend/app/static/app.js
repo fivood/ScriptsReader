@@ -1132,6 +1132,11 @@ function wireEvents() {
 }
 
 async function bootstrap() {
+  // Front-end guard: verify admin token exists; otherwise redirect to login
+  if (!document.cookie.includes('sr_token=')) {
+    window.location.href = '/login';
+    return;
+  }
   loadTheme();
   wireEvents();
   loadAppVersion();

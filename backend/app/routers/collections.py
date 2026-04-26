@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import PlainTextResponse, Response
 
 from ..schemas import CollectionCreateRequest, CollectionItemCreateRequest
@@ -19,8 +19,14 @@ from ..services.collections import (
 router = APIRouter(prefix="/api/collections", tags=["collections"])
 
 
+def _require_admin(request: Request) -> None:
+    if getattr(request.state, "is_guest", False):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+
 @router.get("")
-def get_collections() -> list[dict]:
+def get_collections(request: Request) -> list[dict]:
+    _require_admin(request)
     return list_collections()
 
 
@@ -62,7 +68,8 @@ def delete_collection_item_api(item_id: int) -> dict:
 
 
 @router.get("/{collection_id}/export.md", response_class=PlainTextResponse)
-def export_collection_md(collection_id: int) -> Response:
+def export_collection_md(collection_id: int, request: Request) -> Response:
+    _require_admin(request)
     try:
         content = export_collection_markdown(collection_id)
         return Response(
@@ -75,7 +82,8 @@ def export_collection_md(collection_id: int) -> Response:
 
 
 @router.get("/{collection_id}/export.json")
-def export_collection_json(collection_id: int) -> Response:
+def export_collection_json(collection_id: int, request: Request) -> Response:
+    _require_admin(request)
     try:
         payload = export_collection_json_payload(collection_id)
         return Response(

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from ..schemas import ReadingProgressUpsertRequest
@@ -54,9 +54,9 @@ def rebuild() -> dict:
 
 
 @router.get("/episodes/{episode_id}")
-def get_episode(episode_id: int, speakers: str | None = Query(default=None)) -> dict:
+def get_episode(episode_id: int, request: Request, speakers: str | None = Query(default=None)) -> dict:
     selected = {item.strip() for item in speakers.split(",") if item.strip()} if speakers else None
-    payload = fetch_episode_content(episode_id, selected)
+    payload = fetch_episode_content(episode_id, selected, is_guest=getattr(request.state, "is_guest", False))
     if payload is None:
         raise HTTPException(status_code=404, detail="Episode not found")
     return payload

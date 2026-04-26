@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import ValidationError
 
 from ..schemas import DownloadStartRequest
@@ -15,8 +15,14 @@ from ..services.downloads import (
 router = APIRouter(prefix="/api/downloads", tags=["downloads"])
 
 
+def _require_admin(request: Request) -> None:
+    if getattr(request.state, "is_guest", False):
+        raise HTTPException(status_code=403, detail="Admin access required")
+
+
 @router.get("")
-def get_jobs() -> list[dict]:
+def get_jobs(request: Request) -> list[dict]:
+    _require_admin(request)
     return list_jobs()
 
 

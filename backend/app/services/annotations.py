@@ -1,11 +1,17 @@
 from __future__ import annotations
 
+from fastapi import HTTPException
+
 from ..database import get_connection, init_db
+from ..services.library import _check_guest_episode_visibility
 
 
-def get_episode_annotations(episode_id: int) -> dict:
+def get_episode_annotations(episode_id: int, is_guest: bool = False) -> dict:
     init_db()
     with get_connection() as conn:
+        if not _check_guest_episode_visibility(conn, episode_id, is_guest):
+            raise HTTPException(status_code=404, detail="Episode not found")
+
         highlights = conn.execute(
             "SELECT line_index, color FROM highlights WHERE episode_id = ?",
             (episode_id,),

@@ -3,7 +3,7 @@ from __future__ import annotations
 from ..database import get_connection, init_db
 
 
-def search_lines(keyword: str, limit: int = 50) -> list[dict]:
+def search_lines(keyword: str, limit: int = 50, is_guest: bool = False) -> list[dict]:
     init_db()
     query = keyword.strip()
     if not query:
@@ -13,8 +13,16 @@ def search_lines(keyword: str, limit: int = 50) -> list[dict]:
     safe_limit = max(1, min(limit, 200))
 
     with get_connection() as conn:
+        guest_clause = ""
+        params: list = [like, like]
+
+        if is_guest:
+            visible_count = conn.execute("SELECT COUNT(1) AS c FROM guest_visible_shows").fetchone()["c"]
+            if visible_count:
+                guest_clause = " AND shows.name IN (SELECT show_name FROM guest_visible_shows)"
+
         rows = conn.execute(
-            """
+            f"""
             SELECT
                 dialogue_lines.episode_id,
                 dialogue_lines.line_index,
@@ -29,11 +37,11 @@ def search_lines(keyword: str, limit: int = 50) -> list[dict]:
             JOIN episodes ON episodes.id = dialogue_lines.episode_id
             JOIN seasons ON seasons.id = episodes.season_id
             JOIN shows ON shows.id = seasons.show_id
-            WHERE dialogue_lines.text LIKE ? OR dialogue_lines.speaker LIKE ?
+            WHERE (dialogue_lines.text LIKE ? OR dialogue_lines.speaker LIKE ?){guest_clause}
             ORDER BY shows.name COLLATE NOCASE, seasons.season_number, episodes.episode_code, dialogue_lines.line_index
             LIMIT ?
             """,
-            (like, like, safe_limit),
+            (*params, safe_limit),
         ).fetchall()
 
     return [
@@ -52,7 +60,7 @@ def search_lines(keyword: str, limit: int = 50) -> list[dict]:
     ]
 
 
-def search_speaker_timeline(speaker: str, limit: int = 300) -> list[dict]:
+def search_speaker_timeline(speaker: str, limit: int = 300, is_guest: bool = False) -> list[dict]:
     init_db()
     name = (speaker or "").strip()
     if not name:
@@ -60,8 +68,16 @@ def search_speaker_timeline(speaker: str, limit: int = 300) -> list[dict]:
 
     safe_limit = max(1, min(limit, 1000))
     with get_connection() as conn:
+        guest_clause = ""
+        params: list = [name]
+
+        if is_guest:
+            visible_count = conn.execute("SELECT COUNT(1) AS c FROM guest_visible_shows").fetchone()["c"]
+            if visible_count:
+                guest_clause = " AND shows.name IN (SELECT show_name FROM guest_visible_shows)"
+
         rows = conn.execute(
-            """
+            f"""
             SELECT
                 dialogue_lines.episode_id,
                 dialogue_lines.line_index,
@@ -75,11 +91,11 @@ def search_speaker_timeline(speaker: str, limit: int = 300) -> list[dict]:
             JOIN episodes ON episodes.id = dialogue_lines.episode_id
             JOIN seasons ON seasons.id = episodes.season_id
             JOIN shows ON shows.id = seasons.show_id
-            WHERE dialogue_lines.speaker = ?
+            WHERE dialogue_lines.speaker = ?{guest_clause}
             ORDER BY shows.name COLLATE NOCASE, seasons.season_number, episodes.episode_code, dialogue_lines.line_index
             LIMIT ?
             """,
-            (name, safe_limit),
+            (*params, safe_limit),
         ).fetchall()
 
     return [

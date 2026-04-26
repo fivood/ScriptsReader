@@ -3,10 +3,15 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
+
+
+def _require_admin(request: Request) -> None:
+    if getattr(request.state, "is_guest", False):
+        raise HTTPException(status_code=403, detail="Admin access required")
 
 _ENV_PATH = Path(__file__).resolve().parents[3] / ".env"
 
@@ -94,7 +99,8 @@ class SettingsPatch(BaseModel):
 
 
 @router.get("")
-def get_settings() -> dict:
+def get_settings(request: Request) -> dict:
+    _require_admin(request)
     current = _read_env()
     # Merge with live os.environ for keys not in file
     for k in _KEY_FIELDS:
@@ -122,7 +128,8 @@ def get_settings() -> dict:
 
 
 @router.patch("")
-def patch_settings(payload: SettingsPatch) -> dict:
+def patch_settings(request: Request, payload: SettingsPatch) -> dict:
+    _require_admin(request)
     """Update settings: empty string = clear, None = keep unchanged."""
     current = _read_env()
 

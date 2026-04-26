@@ -140,10 +140,9 @@ def rebuild_library() -> dict[str, int]:
                 _store_episode(conn, episode, source)
                 imported_episodes += 1
 
-        # Sync all shows to guest visibility so guests can browse by default.
-        conn.execute("DELETE FROM guest_visible_shows")
+        # Preserve existing guest visibility settings and auto-enable new shows.
         conn.execute(
-            "INSERT INTO guest_visible_shows(show_name) SELECT name FROM shows"
+            "INSERT OR IGNORE INTO guest_visible_shows(show_name) SELECT name FROM shows"
         )
 
     return {"files": len(files), "episodes": imported_episodes}
@@ -365,14 +364,8 @@ def fetch_guest_library_tree() -> list[dict]:
                                 "episode_code": episode["episode_code"],
                                 "title": episode["title"],
                                 "line_count": int(episode["line_count"]),
-                                "reading_status": (
-                                    "finished"
-                                    if int(episode["line_count"]) > 0 and int(episode["last_line"] or 0) >= int(episode["line_count"])
-                                    else "in_progress"
-                                    if int(episode["last_line"] or 0) > 0
-                                    else "unread"
-                                ),
-                                "last_line": int(episode["last_line"] or 0),
+                                "reading_status": "unread",
+                                "last_line": 0,
                             }
                             for episode in episodes
                         ],
@@ -388,9 +381,30 @@ def fetch_guest_library_tree() -> list[dict]:
     return payload
 
 
-def fetch_episode_content(episode_id: int, speakers: set[str] | None = None) -> dict | None:
+def _check_guest_episode_visibility(conn, episode_id: int, is_guest: bool) -> bool:
+    if not is_guest:
+        return True
+    visible_count = conn.execute("SELECT COUNT(1) AS c FROM guest_visible_shows").fetchone()["c"]
+    if not visible_count:
+        return True
+    row = conn.execute(
+        """
+        SELECT 1 FROM episodes
+        JOIN seasons ON seasons.id = episodes.season_id
+        JOIN shows ON shows.id = seasons.show_id
+        WHERE episodes.id = ? AND shows.name IN (SELECT show_name FROM guest_visible_shows)
+        """,
+        (episode_id,),
+    ).fetchone()
+    return row is not None
+
+
+def fetch_episode_content(episode_id: int, speakers: set[str] | None = None, is_guest: bool = False) -> dict | None:
     init_db()
     with get_connection() as conn:
+        if not _check_guest_episode_visibility(conn, episode_id, is_guest):
+            return None
+
         row = conn.execute(
             """
             SELECT episodes.id, episodes.episode_code, episodes.title, episodes.source_path, episodes.source_url,

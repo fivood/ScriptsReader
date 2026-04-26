@@ -23,13 +23,18 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
     OPEN_PATHS = {"/api/health", "/api/version", "/login", "/guest-login", "/browse"}
 
     async def dispatch(self, request: Request, call_next):
+        request.state.is_admin = False
+        request.state.is_guest = False
+
         if not AUTH_TOKEN:
+            request.state.is_admin = True
             return await call_next(request)
 
         path = request.url.path
 
         # Allow static assets and open endpoints
         if path.startswith("/static/") or path in self.OPEN_PATHS:
+            request.state.is_admin = True
             return await call_next(request)
 
         # Check query param first, then Authorization header
@@ -46,15 +51,18 @@ class TokenAuthMiddleware(BaseHTTPMiddleware):
         # Admin dashboard (/admin) requires valid sr_token only — guests are not allowed
         if path == "/admin":
             if token == AUTH_TOKEN:
+                request.state.is_admin = True
                 return await call_next(request)
             return RedirectResponse("/login")
 
         if token == AUTH_TOKEN:
+            request.state.is_admin = True
             return await call_next(request)
 
         # Guest mode: allow read-only API requests
         is_guest = request.cookies.get("sr_guest", "") == "1"
         if is_guest and request.method in ("GET", "HEAD"):
+            request.state.is_guest = True
             return await call_next(request)
 
         # For HTML page request, redirect to login
@@ -125,7 +133,7 @@ async def login_verify(request: Request):
 def guest_login() -> RedirectResponse:
     """Enter guest mode: allow read-only browsing without a token."""
     resp = RedirectResponse("/browse", status_code=303)
-    resp.set_cookie("sr_guest", "1", httponly=False, samesite="lax", max_age=86400 * 30)
+    resp.set_cookie("sr_guest", "1", httponly=True, samesite="lax", max_age=86400 * 30)
     return resp
 
 
