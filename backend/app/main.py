@@ -124,7 +124,7 @@ async def login_verify(request: Request):
     token = str(form.get("token", "")).strip()
     if token == AUTH_TOKEN:
         resp = RedirectResponse("/admin", status_code=303)
-        resp.set_cookie("sr_token", token, httponly=True, samesite="lax", max_age=86400 * 30)
+        resp.set_cookie("sr_token", token, httponly=False, samesite="lax", max_age=86400 * 30)
         return resp
     return FileResponse(STATIC_DIR / "login.html", media_type="text/html")
 
@@ -133,7 +133,7 @@ async def login_verify(request: Request):
 def guest_login() -> RedirectResponse:
     """Enter guest mode: allow read-only browsing without a token."""
     resp = RedirectResponse("/browse", status_code=303)
-    resp.set_cookie("sr_guest", "1", httponly=True, samesite="lax", max_age=86400 * 30)
+    resp.set_cookie("sr_guest", "1", httponly=False, samesite="lax", max_age=86400 * 30)
     return resp
 
 
